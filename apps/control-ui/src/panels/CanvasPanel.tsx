@@ -31,10 +31,11 @@ function AgentHeartbeatHint({ lastHeartbeatAt }: { lastHeartbeatAt?: number }) {
 
 const LOCAL_DEVICE_IDS = ["1270000001", "local"];
 const NODE_WIDTH = 200;
-const GATEWAY_Y = 20;
-const RADIUS = 200;
-const CENTER_Y = 120;
+const GATEWAY_Y = 40;
+const RADIUS = 240;
+const CENTER_Y = 180;
 const MAX_DEVICE_NAME_LEN = 20;
+const CONNECTOR_GAP = 220;
 
 /** 设备名展示：取 hostname 第一段（去掉 .local 等），过长则截断加省略号，避免框溢出 */
 function shortDeviceName(name: string): string {
@@ -51,7 +52,7 @@ function nodeDisplayName(n: NodeItem): string {
 
 const GATEWAY_NODE_WIDTH = 140;
 
-/** 环形排布：Gateway 在上方居中，Node 在下方半圆弧上 */
+/** 环形排布：Gateway 在上方居中，Node 在下方半圆弧上，留出间距 */
 function buildPositions(count: number): { gateway: { x: number; y: number }; nodes: { x: number; y: number }[] } {
   const gateway = { x: -GATEWAY_NODE_WIDTH / 2, y: GATEWAY_Y };
   if (count === 0) return { gateway, nodes: [] };
@@ -60,7 +61,7 @@ function buildPositions(count: number): { gateway: { x: number; y: number }; nod
     const angle = Math.PI * 0.5 + (count === 1 ? 0 : (i / (count - 1)) * Math.PI);
     nodes.push({
       x: RADIUS * Math.cos(angle) - NODE_WIDTH / 2,
-      y: CENTER_Y + RADIUS * Math.sin(angle) - 24,
+      y: CENTER_Y + RADIUS * Math.sin(angle) - 28,
     });
   }
   return { gateway, nodes };
@@ -134,13 +135,12 @@ function DeviceNode(props: NodeProps) {
 
 const nodeTypes: NodeTypes = { gateway: GatewayNode, device: DeviceNode, connector: ConnectorNode };
 
-const CONNECTOR_ABOVE_GATEWAY_OFFSET_Y = -72;
+const CONNECTOR_ABOVE_Y = -88;
 
 function buildGraph(nodes: NodeItem[], connectors: ConnectorItem[]): { nodes: Node[]; edges: Edge[] } {
   const graphNodes: Node[] = [];
   const graphEdges: Edge[] = [];
-  const total = nodes.length + connectors.length;
-  const { gateway: gwPos, nodes: posList } = buildPositions(total);
+  const { gateway: gwPos, nodes: posList } = buildPositions(nodes.length);
 
   graphNodes.push({
     id: "gateway",
@@ -150,22 +150,25 @@ function buildGraph(nodes: NodeItem[], connectors: ConnectorItem[]): { nodes: No
     draggable: false,
     sourcePosition: Position.Bottom,
     targetPosition: Position.Top,
-    style: { width: GATEWAY_NODE_WIDTH },
+    style: { width: GATEWAY_NODE_WIDTH, minHeight: 48 },
   });
 
+  /* 接入节点在 Gateway 上方横向排开 */
   connectors.forEach((c, i) => {
     const id = `connector-${c.connectorId}`;
+    const totalConn = connectors.length;
+    const startX = totalConn === 1 ? gwPos.x : gwPos.x - ((totalConn - 1) * CONNECTOR_GAP) / 2;
     graphNodes.push({
       id,
       type: "connector",
       position: {
-        x: gwPos.x + (connectors.length === 1 ? 0 : (i - (connectors.length - 1) / 2) * (NODE_WIDTH + 24)),
-        y: GATEWAY_Y + CONNECTOR_ABOVE_GATEWAY_OFFSET_Y - i * 56,
+        x: startX + i * CONNECTOR_GAP - NODE_WIDTH / 2,
+        y: GATEWAY_Y + CONNECTOR_ABOVE_Y,
       },
       data: { connectorId: c.connectorId, displayName: c.displayName, online: c.online },
       draggable: true,
       targetPosition: Position.Bottom,
-      style: { width: NODE_WIDTH },
+      style: { width: NODE_WIDTH, minHeight: 52 },
     });
     graphEdges.push({
       id: `e-gateway-${id}`,
@@ -189,7 +192,7 @@ function buildGraph(nodes: NodeItem[], connectors: ConnectorItem[]): { nodes: No
       },
       draggable: true,
       targetPosition: Position.Top,
-      style: { width: NODE_WIDTH },
+      style: { width: NODE_WIDTH, minHeight: 52 },
     });
     graphEdges.push({
       id: `e-gateway-${id}`,
@@ -231,7 +234,7 @@ function saveCanvasState(state: CanvasSavedState): void {
 }
 
 const ADD_NODE_CMD =
-  "AGENT_ID=my_agent GATEWAY_URL=ws://127.0.0.1:18790 ./.u/skills/agent-creator/scripts/create-and-connect.sh";
+  "AGENT_ID=my_agent GATEWAY_URL=ws://127.0.0.1:9347 ./.u/skills/agent-creator/scripts/create-and-connect.sh";
 
 function CanvasInner({
   active,
@@ -437,7 +440,7 @@ function CanvasInner({
               }}
               nodeTypes={nodeTypes}
               fitView
-              fitViewOptions={{ padding: 0.3 }}
+              fitViewOptions={{ padding: 0.35, minZoom: 0.25, maxZoom: 1.2 }}
               minZoom={0.2}
               maxZoom={1.5}
             >

@@ -20,6 +20,7 @@ export const U_BASE_SKILL_NAMES = [
   "web_skill",
   "message_skill",
   "sessions_skill",
+  "gateway_skill",
 ] as const;
 
 /** 包内模板目录（dist 上一级为 package root） */

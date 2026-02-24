@@ -49,6 +49,12 @@ const CRON_TOOL_NAMES = new Set([
 const WEB_TOOL_NAMES = new Set(["web_fetch", "web_search"]);
 const MESSAGE_TOOL_NAMES = new Set(["send_message"]);
 const SESSIONS_TOOL_NAMES = new Set(["sessions_list", "sessions_preview", "sessions_send"]);
+const GATEWAY_TOOL_NAMES = new Set([
+  "gateway_agents_list",
+  "gateway_nodes_list",
+  "gateway_cron_list",
+  "gateway_skills_status",
+]);
 
 export interface AgentSession {
   agentDir: string;
@@ -135,6 +141,10 @@ export async function buildSessionFromU(
   const sessionsSkillTools = sessionsSkillModule.tools;
   const sessionsSkillExecuteTool = sessionsSkillModule.executeTool as (name: string, args: Record<string, unknown>, gatewayInvoke?: GatewayInvoke) => Promise<{ content: string; isError?: boolean }>;
 
+  const gatewaySkillModule = await loadSkillModule(toolsPath("gateway_skill"));
+  const gatewaySkillTools = gatewaySkillModule.tools;
+  const gatewaySkillExecuteTool = gatewaySkillModule.executeTool as (name: string, args: Record<string, unknown>, gatewayInvoke?: GatewayInvoke) => Promise<{ content: string; isError?: boolean }>;
+
   const baseSkillTools = baseSkillModule.tools;
   const baseSkillExecuteTool = baseSkillModule.executeTool;
   const memoryTools = memoryModule.tools;
@@ -143,7 +153,7 @@ export async function buildSessionFromU(
   const cronExecuteTool = cronModule.executeTool;
 
   const { tools: scriptTools, entries: scriptEntries } = loadSkillScriptTools(skillDirs, {
-    excludeDirNames: ["base_skill", "skill-creator", "memory", "knowledge", "cron", "web_skill", "message_skill", "sessions_skill"],
+    excludeDirNames: ["base_skill", "skill-creator", "memory", "knowledge", "cron", "web_skill", "message_skill", "sessions_skill", "gateway_skill"],
   });
   const executeSkillScript = createSkillScriptExecutor(scriptEntries);
 
@@ -192,6 +202,7 @@ export async function buildSessionFromU(
     ...webSkillTools,
     ...messageSkillTools,
     ...sessionsSkillTools,
+    ...gatewaySkillTools,
     ...scriptTools,
   ];
   const scriptToolNames = new Set(scriptEntries.map((e) => e.name));
@@ -215,6 +226,7 @@ export async function buildSessionFromU(
     if (WEB_TOOL_NAMES.has(name)) return webSkillExecuteTool(name, args);
     if (MESSAGE_TOOL_NAMES.has(name)) return messageSkillExecuteTool(name, args, gatewayInvoke);
     if (SESSIONS_TOOL_NAMES.has(name)) return sessionsSkillExecuteTool(name, args, gatewayInvoke);
+    if (GATEWAY_TOOL_NAMES.has(name)) return gatewaySkillExecuteTool(name, args, gatewayInvoke);
     if (scriptToolNames.has(name)) return executeSkillScript(name, args);
     return baseSkillExecuteTool(name, args);
   }

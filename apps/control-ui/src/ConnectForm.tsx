@@ -11,7 +11,7 @@ export function ConnectForm({ onSubmit, error, initialUrl = "", initialToken = "
   const [url, setUrl] = useState(() => {
     if (initialUrl) return initialUrl;
     return typeof location !== "undefined" && location.hostname === "localhost"
-      ? "ws://127.0.0.1:18790"
+      ? "ws://127.0.0.1:9347"
       : "";
   });
   const [token, setToken] = useState(initialToken);
@@ -40,11 +40,11 @@ export function ConnectForm({ onSubmit, error, initialUrl = "", initialToken = "
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="ws://127.0.0.1:18790"
+            placeholder="ws://127.0.0.1:9347"
             autoComplete="off"
           />
           <span className="muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
-            默认端口 <strong>18790</strong>，请先启动 Gateway：<code>GATEWAY_PORT=18790 npm run gateway</code>
+            默认端口 <strong>9347</strong>，请先启动 Gateway：<code>npm run gateway</code>
           </span>
         </label>
         <label>

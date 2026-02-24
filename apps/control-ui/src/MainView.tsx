@@ -1,19 +1,15 @@
 import { useState, useCallback } from "react";
-import { OverviewPanel } from "./panels/OverviewPanel";
 import { ChatPanel } from "./panels/ChatPanel";
-import { CanvasPanel } from "./panels/CanvasPanel";
+import { TopologyPanel } from "./panels/TopologyPanel";
 import { CronPanel } from "./panels/CronPanel";
-import { StatusPanel } from "./panels/StatusPanel";
 import { SessionsPanel } from "./panels/SessionsPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
 
 export type TabId =
   | "chat"
-  | "overview"
+  | "topology"
   | "sessions"
   | "cron"
-  | "nodes"
-  | "status"
   | "settings";
 
 export type OpenChatPayload = { agentId: string; sessionKey?: string };
@@ -24,11 +20,9 @@ type Props = {
 
 const NAV: { id: TabId; label: string }[] = [
   { id: "chat", label: "对话" },
-  { id: "overview", label: "概览" },
-  { id: "nodes", label: "节点图" },
+  { id: "topology", label: "拓扑" },
   { id: "sessions", label: "会话" },
   { id: "cron", label: "Cron" },
-  { id: "status", label: "状态" },
   { id: "settings", label: "设置" },
 ];
 
@@ -83,20 +77,14 @@ export function MainView({ onDisconnect }: Props) {
             onOpenSession={openChat}
           />
         </div>
-        <div className={`main-content-panel ${tab === "overview" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "overview"}>
-          <OverviewPanel onOpenChat={openChat} />
+        <div className={`main-content-panel ${tab === "topology" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "topology"}>
+          <TopologyPanel isActive={tab === "topology"} onOpenChat={openChat} />
         </div>
         <div className={`main-content-panel ${tab === "sessions" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "sessions"}>
           <SessionsPanel onOpenSession={openChat} />
         </div>
         <div className={`main-content-panel ${tab === "cron" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "cron"}>
           <CronPanel />
-        </div>
-        <div className={`main-content-panel ${tab === "nodes" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "nodes"}>
-          <CanvasPanel active={tab === "nodes"} onOpenChat={openChat} />
-        </div>
-        <div className={`main-content-panel ${tab === "status" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "status"}>
-          <StatusPanel />
         </div>
         <div className={`main-content-panel ${tab === "settings" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "settings"}>
           <SettingsPanel onDisconnect={onDisconnect} />

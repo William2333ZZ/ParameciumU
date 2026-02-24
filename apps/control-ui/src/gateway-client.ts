@@ -48,7 +48,7 @@ export class GatewayClient {
           .catch(done);
       };
       ws.onerror = () => {
-        if (!resolved) done(new Error("连接失败：请确认 Gateway 已启动且端口正确（默认 18790）"));
+        if (!resolved) done(new Error("连接失败：请确认 Gateway 已启动且端口正确（默认 9347）"));
       };
       ws.onclose = (ev) => {
         this.ws = null;
@@ -57,7 +57,7 @@ export class GatewayClient {
         if (resolved) return;
         const msg =
           ev.code === 1006
-            ? "无法连接到该地址，请检查 Gateway 是否在运行、端口是否正确（默认 18790）"
+            ? "无法连接到该地址，请检查 Gateway 是否在运行、端口是否正确（默认 9347）"
             : ev.reason || `连接已关闭 (code ${ev.code})`;
         done(new Error(msg));
       };

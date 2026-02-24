@@ -4,7 +4,7 @@
 
 import os from "node:os";
 import path from "node:path";
-import type { CronStore } from "@monou/cron";
+import { CronStore, getDefaultStorePath } from "@monou/cron";
 import type { CronJobCreate, CronJobPatch } from "@monou/cron";
 import type { GatewayResponse, ErrorShape, ConnectIdentity } from "@monou/gateway";
 import type { GatewayContext, ConnectionEntry, ConnectorMapping } from "./context.js";
@@ -53,6 +53,15 @@ function fail(error: ErrorShape): GatewayResponse {
   return { ok: false, error };
 }
 
+/** 按 agentId 解析该 Agent 的 cron store 路径（.u 用默认，其他用 agents/<id>/cron/jobs.json） */
+function getCronStoreForAgent(rootDir: string, agentId: string): CronStore {
+  const storePath =
+    agentId === DEFAULT_LOCAL_AGENT_ID
+      ? getDefaultStorePath(rootDir)
+      : path.join(rootDir, "agents", agentId, "cron", "jobs.json");
+  return new CronStore(storePath);
+}
+
 export type RequestContext = { connId: string; entry: ConnectionEntry };
 
 export type HandlersContext = GatewayContext & {
@@ -72,6 +81,7 @@ export type HandlersContext = GatewayContext & {
 export function createHandlers(ctx: HandlersContext) {
   const {
     cronStore,
+    rootDir,
     connections,
     pendingInvokes,
     nextInvokeId,
@@ -117,13 +127,17 @@ export function createHandlers(ctx: HandlersContext) {
     },
 
     "cron.list": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+      const agentId = (params?.agentId as string)?.trim() || DEFAULT_LOCAL_AGENT_ID;
       const includeDisabled = params?.includeDisabled === true;
-      const jobs = await cronStore.list({ includeDisabled });
+      const store = getCronStoreForAgent(rootDir, agentId);
+      const jobs = await store.list({ includeDisabled });
       return ok({ jobs });
     },
 
-    "cron.status": async (): Promise<GatewayResponse> => {
-      const status = await cronStore.status();
+    "cron.status": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+      const agentId = (params?.agentId as string)?.trim() || DEFAULT_LOCAL_AGENT_ID;
+      const store = getCronStoreForAgent(rootDir, agentId);
+      const status = await store.status();
       return ok({
         schedulerRunning: false,
         storePath: status.storePath,
@@ -134,8 +148,11 @@ export function createHandlers(ctx: HandlersContext) {
 
     "cron.add": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
       if (!params || typeof params !== "object") return fail(err(INVALID_REQUEST, "cron.add requires params"));
+      const agentId = (params?.agentId as string)?.trim() || DEFAULT_LOCAL_AGENT_ID;
+      const store = getCronStoreForAgent(rootDir, agentId);
+      const { agentId: _a, ...createParams } = params;
       try {
-        const job = await cronStore.add(params as unknown as CronJobCreate);
+        const job = await store.add(createParams as unknown as CronJobCreate);
         return ok(job);
       } catch (e) {
         return fail(err(INVALID_REQUEST, (e as Error).message));
@@ -145,9 +162,11 @@ export function createHandlers(ctx: HandlersContext) {
     "cron.update": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
       const id = params?.id;
       if (typeof id !== "string") return fail(err(INVALID_REQUEST, "cron.update requires params.id"));
-      const patch = { ...params, id: undefined } as CronJobPatch;
+      const agentId = (params?.agentId as string)?.trim() || DEFAULT_LOCAL_AGENT_ID;
+      const store = getCronStoreForAgent(rootDir, agentId);
+      const patch = { ...params, id: undefined, agentId: undefined } as CronJobPatch;
       try {
-        const job = await cronStore.update(id, patch);
+        const job = await store.update(id, patch);
         return ok(job);
       } catch (e) {
         return fail(err((e as Error).message.includes("unknown") ? NOT_FOUND : INVALID_REQUEST, (e as Error).message));
@@ -157,15 +176,19 @@ export function createHandlers(ctx: HandlersContext) {
     "cron.remove": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
       const id = params?.id;
       if (typeof id !== "string") return fail(err(INVALID_REQUEST, "cron.remove requires params.id"));
-      const result = await cronStore.remove(id);
+      const agentId = (params?.agentId as string)?.trim() || DEFAULT_LOCAL_AGENT_ID;
+      const store = getCronStoreForAgent(rootDir, agentId);
+      const result = await store.remove(id);
       return ok(result);
     },
 
     "cron.run": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
       const id = params?.id;
       if (typeof id !== "string") return fail(err(INVALID_REQUEST, "cron.run requires params.id"));
+      const agentId = (params?.agentId as string)?.trim() || DEFAULT_LOCAL_AGENT_ID;
+      const store = getCronStoreForAgent(rootDir, agentId);
       const mode = params?.mode === "due" ? "due" : "force";
-      const result = await cronStore.run(id, mode);
+      const result = await store.run(id, mode);
       return ok(result);
     },
 

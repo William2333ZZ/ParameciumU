@@ -43,7 +43,7 @@ export default function App() {
         const msg = (e as Error).message;
         if (msg === "invalid request frame" || msg.includes("invalid request frame")) {
           setError(
-            "该地址返回了 invalid request frame，通常表示当前是 OpenClaw Gateway 或其它协议。请确认 18790 上运行的是 monoU Gateway：在 monoU 根目录执行 GATEWAY_PORT=18790 npm run gateway（或 GATEWAY_HOST=0.0.0.0 GATEWAY_PORT=18790 node apps/gateway/dist/index.js）。"
+            "该地址返回了 invalid request frame，通常表示当前是 OpenClaw Gateway 或其它协议。请确认 9347 上运行的是 monoU Gateway：在 monoU 根目录执行 npm run gateway（或 GATEWAY_PORT=9347 node apps/gateway/dist/index.js）。"
           );
         } else {
           setError(msg);

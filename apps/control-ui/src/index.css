@@ -496,8 +496,9 @@ a {
 }
 
 .canvas-toolbar-hint {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--muted);
+  line-height: 1.4;
 }
 
 .canvas-refresh-btn {
@@ -522,7 +523,12 @@ a {
 }
 
 .canvas-wrap .react-flow__node {
-  border-radius: 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.canvas-wrap .react-flow__node-default {
+  padding: 0;
 }
 
 .canvas-wrap .react-flow__controls {
@@ -549,16 +555,23 @@ a {
 
 /* 自定义节点：Gateway */
 .canvas-gateway-node {
-  padding: 0.6rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem;
   background: var(--accent);
   color: var(--bg);
   font-weight: 600;
   border-radius: 10px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(167, 139, 250, 0.35);
+  box-shadow: 0 2px 12px rgba(167, 139, 250, 0.4);
+  min-height: 48px;
 }
 .canvas-gateway-node-label {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 
 .canvas-handle {
@@ -578,48 +591,67 @@ a {
   transform: translateX(-50%);
 }
 
-/* 自定义节点：设备 */
+/* 自定义节点：设备 / 接入 */
 .canvas-device-node {
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.9rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  min-width: 160px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  min-height: 52px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .canvas-device-node-title {
   font-weight: 600;
-  font-size: 0.9rem;
-  margin-bottom: 0.35rem;
-  padding-bottom: 0.25rem;
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
   border-bottom: 1px solid var(--border);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 .canvas-device-node-agents {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+.canvas-device-node-agents li.muted {
+  font-size: 0.85rem;
+  padding: 0.25rem 0;
+  line-height: 1.35;
+}
 .canvas-device-agent-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
-  padding: 0.25rem 0;
-  font-size: 0.8rem;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  min-height: 28px;
 }
 .canvas-device-agent-id {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.85rem;
 }
 .canvas-device-chat-btn {
   flex-shrink: 0;
-  padding: 0.15rem 0.4rem;
-  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+/* 接入节点（飞书等）与设备节点同基类，标题下为状态 */
+.canvas-connector-node .canvas-device-node-title {
+  margin-bottom: 0.2rem;
+}
+.canvas-connector-node .muted {
+  font-size: 0.8rem;
+  line-height: 1.3;
 }
 
 /* 工具栏多按钮 */
@@ -979,9 +1011,66 @@ a {
   min-height: 0;
 }
 
-/* 非对话页（概览、Cron 等）内容过多时可滚动 */
+/* 非对话页（拓扑、Cron 等）内容过多时可滚动 */
 .main-content > *:not(.chat-view) {
   overflow: auto;
+}
+
+/* ========== 拓扑 Tab：列表 | 图 切换 ========== */
+.topology-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.topology-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0.75rem 0;
+  flex-shrink: 0;
+}
+
+.topology-toolbar-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.topology-view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.topology-view-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  background: var(--surface);
+  border: none;
+  color: var(--text);
+}
+
+.topology-view-btn:hover {
+  background: var(--border);
+}
+
+.topology-view-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.topology-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.topology-content--graph {
+  overflow: hidden;
+  display: flex;
 }
 
 /* ========== 对话视图：左侧会话列表 + 右侧聊天 ========== */
