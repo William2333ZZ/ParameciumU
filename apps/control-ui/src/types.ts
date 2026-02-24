@@ -13,8 +13,8 @@ export type GatewayResponse = {
   error?: { code: number; message: string };
 };
 
-export type AgentItem = { agentId: string; deviceId?: string; connId: string; online: boolean };
-export type NodeAgent = { agentId: string; connId: string };
+export type AgentItem = { agentId: string; deviceId?: string; connId: string; online: boolean; lastHeartbeatAt?: number };
+export type NodeAgent = { agentId: string; connId: string; lastHeartbeatAt?: number };
 export type NodeItem = {
   nodeId: string;
   deviceId?: string;

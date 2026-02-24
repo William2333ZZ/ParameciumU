@@ -1,5 +1,7 @@
 # pi-coding-agent（pi-agent-core）与 monoU：形态接口与逻辑对齐、超越
 
+> monoU 侧 Agent 运行机制（执行循环、入口、代码位置）的整合说明见 [agent-running.md](./agent-running.md)。
+
 本文档对照 **pi-agent-core**（`pi-mono/packages/agent`）与 **monoU**（`packages/agent-core` + `packages/agent-sdk`）的**形态接口**与**执行逻辑**，并说明 monoU 已做的对齐与超越点。
 
 ---

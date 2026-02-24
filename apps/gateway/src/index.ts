@@ -7,6 +7,7 @@
  *   GATEWAY_PORT=9347
  *   GATEWAY_DATA_DIR= 或 GATEWAY_STATE_DIR= 覆盖数据目录（默认 ./.gateway）
  *   CRON_STORE=
+ *   GATEWAY_AGENT_HEARTBEAT_TIMEOUT_MS= 超时未收到 agent.heartbeat 则断开该连接（0 表示不断开）
  *   GATEWAY_TOKEN= 或 GATEWAY_PASSWORD= 启用认证（connect 时必带 token 或 password）
  *   GATEWAY_TLS_CERT= 与 GATEWAY_TLS_KEY= 启用 wss
  *
@@ -22,7 +23,7 @@ import { CronStore, getDefaultStorePath } from "@monou/cron";
 import { DEFAULT_LOCAL_AGENT_ID } from "./context.js";
 import { createGatewayContext } from "./context.js";
 import { createHandlers } from "./handlers.js";
-import { createGatewayWsServer, broadcastEvent, pushToConnector } from "./server.js";
+import { createGatewayWsServer, broadcastEvent, pushToConnector, startHeartbeatTimeoutCheck } from "./server.js";
 import { resolveAuthConfig } from "./auth.js";
 import { resolveTlsConfig, createHttpsServer } from "./tls.js";
 import { resolveGatewayDataDir, ensureGatewayDataDir, MAPPINGS_FILE } from "./paths.js";
@@ -63,6 +64,8 @@ ctx.persistConnectorMappings = async () => {
   await saveConnectorMappings(GATEWAY_DATA_DIR, MAPPINGS_FILE, ctx.connectorMappings);
 };
 ctx.sessionQueue = createSessionQueueState();
+const heartbeatTimeoutMs = Number(process.env.GATEWAY_AGENT_HEARTBEAT_TIMEOUT_MS) || 0;
+if (heartbeatTimeoutMs > 0) ctx.heartbeatTimeoutMs = heartbeatTimeoutMs;
 
 const hooks = discoverHooks({
   workspaceHooksDir: path.join(ROOT_DIR, ".u", "hooks"),
@@ -87,6 +90,8 @@ function logListen(port: number, host: string): void {
     console.log("  auth: token/password required (send connect first)");
   if (tlsConfig) console.log("  TLS: enabled");
   console.log("  agent: forward only (run 'npm run agent' to connect an agent)");
+  if (ctx.heartbeatTimeoutMs && ctx.heartbeatTimeoutMs > 0)
+    console.log(`  agent heartbeat timeout: ${ctx.heartbeatTimeoutMs}ms (no heartbeat → disconnect)`);
   console.log(
     "  methods: connect, health, status, cron.*, agents.list, sessions.*, agent, agent.wait, chat.history, chat.send, chat.abort, skills.status, node.*, connector.mapping.*, connector.message.inbound, connector.message.push",
   );
@@ -106,6 +111,7 @@ if (tlsConfig) {
   ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
   ctx.pushToConnector = (connectorId, event, payload) =>
     pushToConnector(ctx, connectorId, event, payload);
+  startHeartbeatTimeoutCheck(ctx);
   httpOrHttpsServer.listen(PORT, HOST, async () => {
     logListen(PORT, HOST);
     await emitHook(
@@ -133,6 +139,7 @@ if (tlsConfig) {
   ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
   ctx.pushToConnector = (connectorId, event, payload) =>
     pushToConnector(ctx, connectorId, event, payload);
+  startHeartbeatTimeoutCheck(ctx);
 }
 
 let shuttingDown = false;

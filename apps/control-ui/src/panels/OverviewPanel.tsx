@@ -9,6 +9,16 @@ function nodeDisplayName(n: NodeItem): string {
   return n.nodeId;
 }
 
+/** 根据 lastHeartbeatAt 显示「最近活跃」或「未上报心跳」 */
+function AgentHeartbeatHint({ lastHeartbeatAt }: { lastHeartbeatAt?: number }) {
+  if (lastHeartbeatAt == null) {
+    return <span className="muted" style={{ fontSize: "0.75rem" }}>未上报心跳</span>;
+  }
+  const sec = Math.floor((Date.now() - lastHeartbeatAt) / 1000);
+  const label = sec < 60 ? "刚刚" : sec < 3600 ? `${Math.floor(sec / 60)} 分钟前` : sec < 86400 ? `${Math.floor(sec / 3600)} 小时前` : `${Math.floor(sec / 86400)} 天前`;
+  return <span className="muted" style={{ fontSize: "0.75rem" }}>最近活跃 {label}</span>;
+}
+
 type NodeListPayload = {
   nodes?: NodeItem[];
   connectors?: ConnectorItem[];
@@ -150,6 +160,7 @@ export function OverviewPanel({ onOpenChat, showNodesOnly }: Props) {
                         (n.agents ?? []).map((a) => (
                           <li key={a.agentId} className="overview-agent-row">
                             <span className="overview-agent-id">{a.agentId}</span>
+                            <AgentHeartbeatHint lastHeartbeatAt={a.lastHeartbeatAt} />
                             <button
                               type="button"
                               className="chat-link-btn"

@@ -7,7 +7,7 @@
       "description": "定时金融学习/汇报（每10分钟）",
       "enabled": true,
       "createdAtMs": 1730000000000,
-      "updatedAtMs": 1771893800024,
+      "updatedAtMs": 1771917800018,
       "schedule": {
         "kind": "every",
         "everyMs": 600000
@@ -17,8 +17,8 @@
         "message": "请做一轮自主学习：用 web_search 查一个金融术语或概念（如市盈率、复利、ETF），用 knowledge_learn 把要点记入知识库主题「金融」，然后简要汇报你刚学了什么。若无法联网或无需新学则简要汇报知识库现状并回复 HEARTBEAT_OK。"
       },
       "state": {
-        "nextRunAtMs": 1771894400000,
-        "lastRunAtMs": 1771893800024,
+        "nextRunAtMs": 1771918400000,
+        "lastRunAtMs": 1771917800018,
         "lastStatus": "ok"
       }
     }

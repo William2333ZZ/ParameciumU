@@ -128,3 +128,5 @@ Gateway **不做**：
 **会话**：不放在 agent 目录。由控制面管理：元数据在 `.gateway/sessions/sessions.json`，transcript 在 `.gateway/sessions/transcripts/`。未指定 sessionKey 时按时间新建 key。
 
 凡符合上述约定的目录，即「monoU 兼容智能体」；可被任意兼容运行时加载、备份、迁移、克隆。详见 [agent-directory.md](./agent-directory.md)。
+
+**Agent 运行机制**（目录加载、执行循环、Heartbeat）的代码级说明见 [agent-running.md](./agent-running.md)。

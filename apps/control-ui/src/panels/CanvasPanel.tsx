@@ -19,6 +19,16 @@ import "@xyflow/react/dist/style.css";
 import { gatewayClient } from "../gateway-client";
 import type { NodeItem, NodeAgent, ConnectorItem } from "../types";
 
+/** 根据 lastHeartbeatAt 显示「最近活跃」或「未上报心跳」 */
+function AgentHeartbeatHint({ lastHeartbeatAt }: { lastHeartbeatAt?: number }) {
+  if (lastHeartbeatAt == null) {
+    return <span className="muted" style={{ fontSize: "0.7rem" }}>未上报心跳</span>;
+  }
+  const sec = Math.floor((Date.now() - lastHeartbeatAt) / 1000);
+  const label = sec < 60 ? "刚刚" : sec < 3600 ? `${Math.floor(sec / 60)} 分钟前` : sec < 86400 ? `${Math.floor(sec / 3600)} 小时前` : `${Math.floor(sec / 86400)} 天前`;
+  return <span className="muted" style={{ fontSize: "0.7rem" }}>最近活跃 {label}</span>;
+}
+
 const LOCAL_DEVICE_IDS = ["1270000001", "local"];
 const NODE_WIDTH = 200;
 const GATEWAY_Y = 20;
@@ -101,6 +111,7 @@ function DeviceNode(props: NodeProps) {
           agents.map((a: NodeAgent, i: number) => (
             <li key={a.connId ? `${a.agentId}-${a.connId}` : `${a.agentId}-${i}`} className="canvas-device-agent-row">
               <span className="canvas-device-agent-id">{a.agentId}</span>
+              <AgentHeartbeatHint lastHeartbeatAt={a.lastHeartbeatAt} />
               {onOpenChat && (
                 <button
                   type="button"

@@ -369,55 +369,55 @@ export function createHandlers(ctx: HandlersContext) {
       const deviceId = params?.deviceId as string | undefined;
       const connectorId = params?.connectorId as string | undefined;
 
-      // 按 agentId 派发到远程：Control UI 传 agentId 时优先用连接表找到对应 agent 的 connId
-      if (agentId !== DEFAULT_LOCAL_AGENT_ID) {
-        const nodes = getNodesFromConnections(connections);
-        const agentSlot = nodes.flatMap((n) => n.agents).find((a) => a.agentId === agentId);
-        const connId = agentSlot?.connId;
-        if (typeof connId === "string" && connId.length > 0) {
-          const entry = connections.get(connId);
-          if (entry?.ws.readyState === 1) {
-            const sessionKey = (params?.sessionKey as string)?.trim() || req?.entry?.sessionKey?.trim();
-            const sessionId = (params?.sessionId as string)?.trim();
-            const store = loadSessionStore(sessionStorePath);
-            const resolveOpts = { storePath: sessionStorePath, resetPolicy };
-            const { sessionKey: resolvedKey, transcriptPath, entry: remoteEntry } = resolveSession(
-              store,
-              { sessionKey: sessionKey || undefined, sessionId },
-              mainTranscriptPath,
-              resolveOpts,
-            );
-            const id = nextInvokeId();
-            return new Promise<GatewayResponse>((resolve) => {
-              const timeout = setTimeout(() => {
-                if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
-              }, 120_000);
-              ctx.pendingInvokes.set(id, (result: unknown) => {
-                clearTimeout(timeout);
-                ctx.pendingInvokes.delete(id);
-                const out = typeof result === "object" && result !== null && "text" in result
-                  ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
-                  : { text: String(result ?? ""), toolCalls: [] };
-                try {
-                  const assistantToolCalls = out.toolCalls?.map((tc, i) => ({
-                    id: (tc as { id?: string }).id ?? `tc-${i}`,
-                    name: tc.name,
-                    arguments: tc.arguments,
-                  }));
-                  const toAppend = [
-                    { role: "user" as const, content: message as string },
-                    { role: "assistant" as const, content: out.text, ...(assistantToolCalls?.length ? { toolCalls: assistantToolCalls } : {}) },
-                  ];
-                  const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
-                  updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
-                } catch (_) {}
-                resolve(ok(out));
-              });
-              entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message } }));
+      // 按 agentId 派发到已连接的 agent（含 .u）：找到连接则转发 node.invoke，不依赖 ctx.runAgent
+      const nodes = getNodesFromConnections(connections);
+      const agentSlot = nodes.flatMap((n) => n.agents).find((a) => a.agentId === agentId);
+      const connId = agentSlot?.connId;
+      if (typeof connId === "string" && connId.length > 0) {
+        const entry = connections.get(connId);
+        if (entry?.ws.readyState === 1) {
+          const sessionKey = (params?.sessionKey as string)?.trim() || req?.entry?.sessionKey?.trim();
+          const sessionId = (params?.sessionId as string)?.trim();
+          const store = loadSessionStore(sessionStorePath);
+          const resolveOpts = { storePath: sessionStorePath, resetPolicy };
+          const { sessionKey: resolvedKey, transcriptPath, entry: remoteEntry } = resolveSession(
+            store,
+            { sessionKey: sessionKey || undefined, sessionId },
+            mainTranscriptPath,
+            resolveOpts,
+          );
+          const id = nextInvokeId();
+          return new Promise<GatewayResponse>((resolve) => {
+            const timeout = setTimeout(() => {
+              if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
+            }, 120_000);
+            ctx.pendingInvokes.set(id, (result: unknown) => {
+              clearTimeout(timeout);
+              ctx.pendingInvokes.delete(id);
+              const out = typeof result === "object" && result !== null && "text" in result
+                ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
+                : { text: String(result ?? ""), toolCalls: [] };
+              try {
+                const assistantToolCalls = out.toolCalls?.map((tc, i) => ({
+                  id: (tc as { id?: string }).id ?? `tc-${i}`,
+                  name: tc.name,
+                  arguments: tc.arguments,
+                }));
+                const toAppend = [
+                  { role: "user" as const, content: message as string },
+                  { role: "assistant" as const, content: out.text, ...(assistantToolCalls?.length ? { toolCalls: assistantToolCalls } : {}) },
+                ];
+                const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
+                updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
+              } catch (_) {}
+              resolve(ok(out));
             });
-          }
-          return fail(err(503, `agent ${agentId} not connected`));
+            entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message } }));
+          });
         }
+      }
+
+      if (agentId !== DEFAULT_LOCAL_AGENT_ID) {
         return fail(err(503, `agent ${agentId} not connected (ensure the agent is running and connected to this gateway)`));
       }
 

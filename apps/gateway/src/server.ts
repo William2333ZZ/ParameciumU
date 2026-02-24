@@ -84,6 +84,19 @@ export function createGatewayWsServer(opts: GatewayWsServerOptions): WebSocketSe
         const sessionKey = (params as Record<string, unknown>).sessionKey;
         if (typeof sessionKey === "string" && sessionKey.trim()) entry.sessionKey = sessionKey.trim();
         if (entry.identity?.role === "agent") {
+          entry.lastHeartbeatAt = Date.now();
+          const agentId = entry.identity.agentId;
+          for (const [existingConnId, existingEntry] of context.connections) {
+            if (existingConnId === connId) continue;
+            if (existingEntry.identity?.role === "agent" && existingEntry.identity.agentId === agentId && existingEntry.ws.readyState === 1) {
+              console.error(`[gateway] agent duplicate closed: agentId=${agentId} oldConnId=${existingConnId} (one agent one connection)`);
+              try {
+                existingEntry.ws.close();
+              } catch {
+                // ignore
+              }
+            }
+          }
           console.error(`[gateway] agent connected: agentId=${entry.identity.agentId} deviceId=${entry.identity.deviceId} connId=${connId}`);
         }
         if (entry.identity?.role === "connector" && entry.identity?.connectorId) {
@@ -121,6 +134,29 @@ export function createGatewayWsServer(opts: GatewayWsServerOptions): WebSocketSe
 function send(ws: WebSocket, msg: GatewayResponse): void {
   if (ws.readyState !== 1) return;
   ws.send(JSON.stringify(msg));
+}
+
+const HEARTBEAT_CHECK_INTERVAL_MS = 60_000;
+
+/** 若 context.heartbeatTimeoutMs > 0，则定期检查 agent 连接：超时未收到 agent.heartbeat 则关闭连接 */
+export function startHeartbeatTimeoutCheck(context: GatewayContext): void {
+  const timeoutMs = context.heartbeatTimeoutMs ?? 0;
+  if (timeoutMs <= 0) return;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [connId, entry] of context.connections) {
+      if (entry.identity?.role !== "agent" || entry.ws.readyState !== 1) continue;
+      const last = entry.lastHeartbeatAt ?? entry.connectedAt;
+      if (now - last > timeoutMs) {
+        console.error(`[gateway] agent heartbeat timeout: agentId=${entry.identity.agentId} connId=${connId}, closing`);
+        try {
+          entry.ws.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, HEARTBEAT_CHECK_INTERVAL_MS);
 }
 
 export function broadcastEvent(wss: WebSocketServer, event: GatewayEvent): void {

@@ -64,6 +64,8 @@ export type GatewayContext = {
   runIdToPromise: Map<string, Promise<{ text: string; toolCalls?: Array<{ name: string; arguments?: string }> }>>;
   /** runId -> AbortController，供 chat.abort 中止 */
   runIdToAbort: Map<string, AbortController>;
+  /** Agent 无心跳超时（毫秒）：>0 时定期检查，超时未收到 agent.heartbeat 则断开该连接；0 表示不按心跳断开 */
+  heartbeatTimeoutMs?: number;
   /** 广播事件（由 index 在创建 wss 后注入） */
   broadcast?: (event: string, payload: unknown) => void;
   /** 向指定 connector 推送事件（仅发给 identity.connectorId 匹配的连接） */
@@ -134,12 +136,15 @@ export function getAgentsFromConnections(connections: Map<string, ConnectionEntr
   return list;
 }
 
+/** 该 Node 上的单个 Agent（含最近心跳时间，供 UI 显示「最近活跃」） */
+export type NodeAgentEntry = { agentId: string; connId: string; lastHeartbeatAt?: number };
+
 /** 按 deviceId 聚合的 Node：一个设备一个 Node，其上可有多 Agent（多连接） */
 export type NodeEntry = {
   nodeId: string;
   deviceId?: string;
   /** 该 Node 上的 agentId 列表（role=agent 的连接） */
-  agents: Array<{ agentId: string; connId: string }>;
+  agents: NodeAgentEntry[];
   /** 用于 node.invoke 的主连接：优先 role=node，否则该 deviceId 下第一个 agent 连接 */
   connId: string;
   /** connect 时声明的能力，如 ["sandbox"]（Sandbox Node 方案 B） */
@@ -151,7 +156,7 @@ export function getNodesFromConnections(connections: Map<string, ConnectionEntry
     string,
     {
       connIds: string[];
-      agentIds: Array<{ agentId: string; connId: string }>;
+      agentIds: NodeAgentEntry[];
       nodeConnId?: string;
       capabilities?: string[];
     }
@@ -179,7 +184,7 @@ export function getNodesFromConnections(connections: Map<string, ConnectionEntry
         byDevice.set(deviceId, slot);
       }
       slot.connIds.push(connId);
-      slot.agentIds.push({ agentId: id.agentId, connId });
+      slot.agentIds.push({ agentId: id.agentId, connId, lastHeartbeatAt: entry.lastHeartbeatAt });
       if (!slot.nodeConnId) slot.nodeConnId = connId;
       if (caps?.length) slot.capabilities = caps;
     }

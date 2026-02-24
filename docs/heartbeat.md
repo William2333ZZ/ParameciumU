@@ -1,5 +1,7 @@
 # Heartbeat：在线证明与周期学习
 
+> 与 Agent 目录、执行过程一起的代码级整合说明见 [agent-running.md](./agent-running.md)。
+
 本文档说明 monoU 中 **heartbeat** 的语义、与 Gateway 的关系、在 Cron 中的实现，以及如何与「不断学习」目标统一。
 
 ---
