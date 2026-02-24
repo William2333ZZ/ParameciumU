@@ -28,20 +28,20 @@ Gateway 只做控制面与转发；要执行 agent 对话需**单独启动 agent
 
 ```bash
 # 终端 2：本机默认 .u agent
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=.u AGENT_DIR=./.u npm run agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u npm run agent
 
 # 终端 3：再一个 agent，例如 A_agent
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
 
 # 另一台机器
-GATEWAY_URL=ws://192.168.1.100:18789 AGENT_ID=my_agent npm run agent
+GATEWAY_URL=ws://192.168.1.100:9347 AGENT_ID=my_agent npm run agent
 ```
 
 每个 agent 的 `AGENT_DIR` 需与 `.u` 同构（其下 `cron/`、`skills/` 等；会话由 Gateway 管理）。可在项目内复制 `.u` 为 `A_agent`、`B_agent` 再指定 `AGENT_DIR`。
 
 环境变量：
 
-- `GATEWAY_PORT`（默认 18789）、`GATEWAY_HOST`（默认 127.0.0.1）、`CRON_STORE`（默认 `./.u/cron/jobs.json`）
+- `GATEWAY_PORT`（默认 9347）、`GATEWAY_HOST`（默认 127.0.0.1）、`CRON_STORE`（默认 `./.u/cron/jobs.json`）
 - **数据目录**：`GATEWAY_DATA_DIR` 或 `GATEWAY_STATE_DIR` 覆盖默认 `./.gateway`（与 OpenClaw 的 `~/.openclaw` 对应，但为项目内目录）
 - **认证**：`GATEWAY_TOKEN` 或 `GATEWAY_PASSWORD` 任一非空即启用；客户端首条须为 `connect` 并带 `token`/`password`
 - **TLS**：`GATEWAY_TLS_CERT`、`GATEWAY_TLS_KEY` 为证书与私钥文件路径时启用 wss
@@ -100,10 +100,10 @@ GATEWAY_URL=ws://192.168.1.100:18789 AGENT_ID=my_agent npm run agent
 npm run gateway
 
 # 终端 2：启动 A_agent（使用与 .u 同构的 ./A_agent 目录）
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
 
 # 或直接 node（若在 apps/agent 下）
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=A_agent AGENT_DIR=/path/to/A_agent node apps/agent/dist/index.js
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=/path/to/A_agent node apps/agent/dist/index.js
 ```
 
 环境变量：

@@ -4,7 +4,7 @@
  *
  * 用法: npx monou-gateway 或 npm run gateway
  * 环境变量:
- *   GATEWAY_PORT=18789
+ *   GATEWAY_PORT=9347
  *   GATEWAY_DATA_DIR= 或 GATEWAY_STATE_DIR= 覆盖数据目录（默认 ./.gateway）
  *   CRON_STORE=
  *   GATEWAY_TOKEN= 或 GATEWAY_PASSWORD= 启用认证（connect 时必带 token 或 password）
@@ -35,7 +35,7 @@ const PORT =
   Number(
     process.env.GATEWAY_PORT ??
       process.argv.find((a) => a.startsWith("--port="))?.split("=")[1],
-  ) || 18789;
+  ) || 9347;
 const HOST = process.env.GATEWAY_HOST ?? "127.0.0.1";
 /** 本机默认 agent 的工作区根目录，其下 .u 为配置与对话（与 DEFAULT_LOCAL_AGENT_ID 对应）；启动 Gateway 时的 cwd */
 const ROOT_DIR = process.cwd();

@@ -34,7 +34,7 @@ npm run build
 npm run gateway
 ```
 
-默认监听 `ws://127.0.0.1:18789`。可指定端口：`GATEWAY_PORT=18790 npm run gateway`。如需认证，设置 `GATEWAY_TOKEN` 或 `GATEWAY_PASSWORD`，连接时首条消息须为 connect 并带对应 token/password。
+默认监听 `ws://127.0.0.1:9347`。可指定端口：`GATEWAY_PORT=18790 npm run gateway`。如需认证，设置 `GATEWAY_TOKEN` 或 `GATEWAY_PASSWORD`，连接时首条消息须为 connect 并带对应 token/password。
 
 ## 四、启动 Agent（执行对话所必需）
 
@@ -43,7 +43,7 @@ Gateway 只做路由与转发，不执行 agent。需在另一终端启动 agent
 终端 2：
 
 ```bash
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=.u AGENT_DIR=./.u npm run agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u npm run agent
 ```
 
 若 agent 目录不在 `./.u`，可设置 `AGENT_DIR=/path/to/your/agent`（目录须与 .u 同构）。多 agent 时再开终端，换 `AGENT_ID` 与 `AGENT_DIR` 即可。
@@ -56,7 +56,7 @@ GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=.u AGENT_DIR=./.u npm run agent
 npm run control-ui
 ```
 
-浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:18789`）和可选 token/password 连接。连接后可看到节点/Agent、会话、Cron 等，并与 Agent 对话。
+浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:9347`）和可选 token/password 连接。连接后可看到节点/Agent、会话、Cron 等，并与 Agent 对话。
 
 ## 六、使用 TUI（终端）
 
@@ -90,7 +90,7 @@ npm run u
 若需在隔离环境执行 system.run / system.which（供 node.invoke 调用）：
 
 ```bash
-GATEWAY_URL=ws://127.0.0.1:18789 SANDBOX_NODE_ID=sandbox-1 npm run sandbox-node
+GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 npm run sandbox-node
 ```
 
 默认使用 Docker；设 `SANDBOX_USE_DOCKER=0` 可退化为本机子进程。
@@ -101,7 +101,7 @@ GATEWAY_URL=ws://127.0.0.1:18789 SANDBOX_NODE_ID=sandbox-1 npm run sandbox-node
 |------|------|
 | 构建全量 | `npm run build` |
 | 启动 Gateway | `npm run gateway` |
-| 启动 Agent（连 Gateway） | `GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=.u npm run agent` |
+| 启动 Agent（连 Gateway） | `GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u npm run agent` |
 | 开发 Control UI | `npm run control-ui` |
 | TUI（终端） | `npx u-tui` |
 | 本机对话（不连 Gateway） | `npm run u` |

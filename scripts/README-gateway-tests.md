@@ -12,7 +12,7 @@ npm run gateway
 npm run test:gateway
 ```
 
-可选环境变量：`GATEWAY_URL=ws://127.0.0.1:18790`（默认 18789）。
+可选环境变量：`GATEWAY_URL=ws://127.0.0.1:18790`（默认 9347）。
 
 覆盖：health、connect、cron.list、cron.status、agents.list、sessions.list、node.list、status。
 

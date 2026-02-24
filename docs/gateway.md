@@ -78,7 +78,7 @@ apps/gateway — WebSocket 服务端：connect、路由、handlers、会话、cr
 import { callGateway } from "@monou/gateway";
 
 const jobs = await callGateway<{ jobs: unknown[] }>({
-  url: "ws://127.0.0.1:18789",
+  url: "ws://127.0.0.1:9347",
   method: "cron.list",
   params: { includeDisabled: true },
 });

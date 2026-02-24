@@ -33,7 +33,7 @@ export function createGatewayWsServer(opts: GatewayWsServerOptions): WebSocketSe
 
   const wss = opts.server
     ? new WebSocketServer({ server: opts.server })
-    : new WebSocketServer({ port: opts.port ?? 18789, host: opts.host ?? "127.0.0.1" });
+    : new WebSocketServer({ port: opts.port ?? 9347, host: opts.host ?? "127.0.0.1" });
 
   if (!opts.server) {
     wss.on("listening", () => {

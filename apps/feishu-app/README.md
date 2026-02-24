@@ -10,7 +10,7 @@
 |------|------|------|
 | `FEISHU_APP_ID` | 是 | 飞书应用 App ID |
 | `FEISHU_APP_SECRET` | 是 | 飞书应用 App Secret |
-| `GATEWAY_WS_URL` | 否 | Gateway WebSocket 地址，默认 `ws://127.0.0.1:18789` |
+| `GATEWAY_WS_URL` | 否 | Gateway WebSocket 地址，默认 `ws://127.0.0.1:9347` |
 | `FEISHU_DOMAIN` | 否 | `feishu`（国内）或 `lark`（国际） |
 | `CONNECTOR_ID` | 否 | 该实例在 Gateway 中的标识，默认 `feishu`。**多飞书时**第二个进程可设 `feishu_team_b` 等，便于区分与配置映射 |
 | `CONNECTOR_DISPLAY_NAME` | 否 | 在 Control UI 中显示的接入名称（如「公司飞书」「客服机器人」）。不设则显示 connectorId。可从飞书开放平台应用名称复制后填入 |

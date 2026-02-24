@@ -2,7 +2,7 @@
 /**
  * 启动 agent 的 app：连 Gateway、注册、收 node.invoke 派发、用 agent-from-dir 跑一轮并回传。
  * 连接成功后自动确保存在 heartbeat 定时任务（与 OpenClaw 语义对齐），由同一 runScheduler 到点跑 agent、可选 push。
- * 用法: GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=.u AGENT_DIR=./.u node dist/index.js
+ * 用法: GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u node dist/index.js
  */
 
 import "dotenv/config";

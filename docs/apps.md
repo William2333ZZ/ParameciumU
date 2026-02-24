@@ -21,7 +21,7 @@ GATEWAY_PORT=18790 npm run gateway
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| GATEWAY_PORT | 监听端口 | 18789 |
+| GATEWAY_PORT | 监听端口 | 9347 |
 | GATEWAY_HOST | 监听地址 | 127.0.0.1 |
 | GATEWAY_DATA_DIR / GATEWAY_STATE_DIR | 数据目录（mappings、sessions） | ./.gateway |
 | CRON_STORE | cron 任务存储路径 | ./.u/cron/jobs.json |
@@ -45,10 +45,10 @@ GATEWAY_PORT=18790 npm run gateway
 
 ```bash
 # 终端 2（Gateway 已启动）
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=.u AGENT_DIR=./.u npm run agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u npm run agent
 
 # 多 agent 示例
-GATEWAY_URL=ws://127.0.0.1:18789 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
 ```
 
 **环境变量**：
@@ -78,7 +78,7 @@ npm run control-ui
 cd apps/control-ui && npm run dev
 ```
 
-浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:18789`）和可选 token/password 连接。需先启动 Gateway 与至少一个 agent。
+浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:9347`）和可选 token/password 连接。需先启动 Gateway 与至少一个 agent。
 
 **构建**：`npm run control-ui:build`，产物在 `apps/control-ui/dist`。
 
@@ -120,7 +120,7 @@ npx u-tui
 **运行**：
 
 ```bash
-GATEWAY_URL=ws://127.0.0.1:18789 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.sandbox npm run sandbox-node
+GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.sandbox npm run sandbox-node
 ```
 
 **环境变量**：

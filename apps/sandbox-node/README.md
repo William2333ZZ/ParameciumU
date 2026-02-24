@@ -6,7 +6,7 @@
 
 ```bash
 # 必填
-export GATEWAY_URL=ws://127.0.0.1:18789
+export GATEWAY_URL=ws://127.0.0.1:9347
 
 # 可选：节点 ID（默认 sandbox-1），用于 node.list / node.invoke 目标
 export SANDBOX_NODE_ID=sandbox-1
@@ -19,7 +19,7 @@ export SANDBOX_WORKSPACE=./.sandbox
 export SANDBOX_IMAGE=debian:bookworm-slim
 
 npm run sandbox-node
-# 或从仓库根：GATEWAY_URL=ws://127.0.0.1:18789 npm run sandbox-node
+# 或从仓库根：GATEWAY_URL=ws://127.0.0.1:9347 npm run sandbox-node
 ```
 
 **默认 Docker**：使用长驻容器 + `docker exec` 执行命令，与 OpenClaw 一致。设 **SANDBOX_USE_DOCKER=0** 时退化为本机目录 + 子进程（无容器）。

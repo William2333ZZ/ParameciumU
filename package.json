@@ -22,6 +22,7 @@
     "u": "npx tsx scripts/run-u.ts",
     "cron:daemon": "node node_modules/@monou/cron/dist/cli.js",
     "gateway": "node apps/gateway/dist/index.js",
+    "agent": "node apps/agent/dist/index.js",
     "gateway:agent": "node apps/gateway/dist/agent-client.js",
     "test:gateway": "npx tsx scripts/test-gateway.ts",
     "test:gateway-e2e": "npm run build && npx tsx scripts/test-gateway-e2e.ts",

@@ -6,7 +6,7 @@ export type FeishuAppConfig = {
   appId: string;
   /** 飞书应用 App Secret */
   appSecret: string;
-  /** Gateway WebSocket 地址，如 ws://127.0.0.1:18789 */
+  /** Gateway WebSocket 地址，如 ws://127.0.0.1:9347 */
   gatewayWsUrl: string;
   /** 飞书域名：feishu | lark，默认 feishu */
   domain: "feishu" | "lark";
@@ -16,7 +16,7 @@ export type FeishuAppConfig = {
   connectorDisplayName?: string;
 };
 
-const DEFAULT_GATEWAY_WS = "ws://127.0.0.1:18789";
+const DEFAULT_GATEWAY_WS = "ws://127.0.0.1:9347";
 const DEFAULT_CONNECTOR_ID = "feishu";
 
 export function loadConfig(): FeishuAppConfig {

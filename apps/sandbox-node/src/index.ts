@@ -4,7 +4,7 @@
  * 在隔离 workspace 内执行 system.run / system.which；可被 node.invoke 定向调用。
  *
  * 用法:
- *   GATEWAY_URL=ws://127.0.0.1:18789 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.sandbox node dist/index.js
+ *   GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.sandbox node dist/index.js
  *
  * 环境变量:
  *   GATEWAY_URL       Gateway WebSocket 地址（必填）

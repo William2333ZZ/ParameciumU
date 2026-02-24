@@ -12,9 +12,9 @@ npm run control-ui
 cd apps/control-ui && npm run dev
 ```
 
-浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:18789`）和可选 token/password 连接。
+浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:9347`）和可选 token/password 连接。
 
-需先启动 Gateway：`npm run gateway`（默认 18789 端口）。
+需先启动 Gateway：`npm run gateway`（默认 9347 端口）。
 
 ## 构建
 
