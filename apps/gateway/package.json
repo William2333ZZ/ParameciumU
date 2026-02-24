@@ -1,0 +1,35 @@
+{
+  "name": "@monou/gateway-app",
+  "version": "0.1.0",
+  "description": "monoU Gateway server (health, cron, agents, sessions, agent run, node invoke)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": { "monou-gateway": "./dist/index.js", "monou-gateway-agent": "./dist/agent-client.js" },
+  "files": ["dist", "hooks", "README.md"],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "start": "node dist/index.js",
+    "agent": "node dist/agent-client.js",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@monou/agent-sdk": "^0.1.0",
+    "@monou/cron": "^0.1.0",
+    "@monou/gateway": "file:../../packages/gateway",
+    "@monou/shared": "^0.1.0",
+    "@monou/agent-from-dir": "^0.1.0",
+    "ws": "^8.18.0"
+  },
+  "keywords": ["monou", "gateway", "server"],
+  "author": "",
+  "license": "MIT",
+  "engines": { "node": ">=20.0.0" },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.9.2"
+  }
+}

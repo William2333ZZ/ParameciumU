@@ -1,0 +1,27 @@
+{
+  "name": "@monou/tui",
+  "version": "0.1.0",
+  "description": "Terminal User Interface with differential rendering (no pi-mono dependency)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "get-east-asian-width": "^1.3.0",
+    "marked": "^15.0.12"
+  },
+  "keywords": ["monou", "tui", "terminal", "differential-rendering"],
+  "author": "",
+  "license": "MIT",
+  "engines": { "node": ">=20.0.0" },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@monou/cron",
+  "version": "0.1.0",
+  "description": "Standalone cron/scheduled job store and schedule computation (no openclaw dependency)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": { "monou-cron": "./dist/cli.js" },
+  "exports": { ".": "./dist/index.js", "./scheduler": "./dist/scheduler.js" },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "croner": "^10.0.1"
+  },
+  "keywords": ["monou", "cron", "scheduler"],
+  "author": "",
+  "license": "MIT",
+  "engines": { "node": ">=20.0.0" },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.2"
+  }
+}

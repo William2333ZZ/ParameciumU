@@ -1,0 +1,31 @@
+{
+  "name": "@monou/agent-from-dir",
+  "version": "0.1.0",
+  "description": "Build agent session and context from an agent directory (.u or any dir)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run clean && npm run build",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@monou/agent-core": "^0.1.0",
+    "@monou/agent-sdk": "^0.1.0",
+    "@monou/agent-template": "^0.1.0",
+    "@monou/llm-provider": "^0.1.0"
+  },
+  "keywords": ["monou", "agent"],
+  "author": "",
+  "license": "MIT",
+  "engines": { "node": ">=20.0.0" },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "exports": { ".": "./dist/index.js" }
+}

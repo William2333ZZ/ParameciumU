@@ -1,0 +1,23 @@
+{
+  "name": "@monou/sandbox-node",
+  "version": "0.1.0",
+  "description": "Sandbox Node：以 role=node 连接 Gateway，在隔离 workspace 内执行 system.run / system.which（方案 B）",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": { "monou-sandbox-node": "./dist/index.js" },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "ws": "^8.18.0"
+  },
+  "engines": { "node": ">=20.0.0" },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.9.2"
+  }
+}

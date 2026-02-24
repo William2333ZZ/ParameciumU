@@ -1,0 +1,49 @@
+{
+  "name": "monou",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "clean": "npm run clean --workspaces --if-present",
+    "build": "cd packages/shared && npm run build && cd ../agent-core && npm run build && cd ../skills && npm run build && cd ../cron && npm run build && cd ../agent-sdk && npm run build && cd ../agent-template && npm run build && cd ../llm-provider && npm run build && cd ../agent-from-dir && npm run build && cd ../tui && npm run build && cd ../gateway && npm run build && cd ../../apps/gateway && npm run build && cd ../agent && npm run build",
+    "dev": "concurrently --names \"cli,server\" --prefix-colors \"cyan,green\" \"cd apps/agent-cli && npm run dev\" \"cd apps/agent-server && npm run dev\"",
+    "check": "biome check --write --error-on-warnings packages apps && tsc -p tsconfig.json",
+    "test": "npm run test --workspaces --if-present",
+    "version:patch": "npm version patch -ws --no-git-tag-version && node scripts/sync-versions.js && rm -rf node_modules packages/*/node_modules apps/*/node_modules package-lock.json && npm install",
+    "version:minor": "npm version minor -ws --no-git-tag-version && node scripts/sync-versions.js && rm -rf node_modules packages/*/node_modules apps/*/node_modules package-lock.json && npm install",
+    "version:major": "npm version major -ws --no-git-tag-version && node scripts/sync-versions.js && rm -rf node_modules packages/*/node_modules apps/*/node_modules package-lock.json && npm install",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
+    "prepare": "husky",
+    "u": "npx tsx scripts/run-u.ts",
+    "cron:daemon": "node node_modules/@monou/cron/dist/cli.js",
+    "gateway": "node apps/gateway/dist/index.js",
+    "gateway:agent": "node apps/gateway/dist/agent-client.js",
+    "test:gateway": "npx tsx scripts/test-gateway.ts",
+    "test:gateway-e2e": "npm run build && npx tsx scripts/test-gateway-e2e.ts",
+    "test:scenario": "npm run build && npx tsx scripts/test-scenario-stock-agent.ts",
+    "control-ui": "npm run dev --workspace=@monou/control-ui",
+    "control-ui:build": "npm run build --workspace=@monou/control-ui",
+    "tui": "node apps/tui/dist/index.js",
+    "tui:build": "npm run build --workspace=@monou/tui-app"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@monou/gateway": "file:packages/gateway",
+    "chalk": "^5.3.0",
+    "@biomejs/biome": "^2.3.5",
+    "@types/node": "^22.10.5",
+    "concurrently": "^9.2.1",
+    "dotenv": "^16.6.1",
+    "husky": "^9.1.7",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@monou/feishu-app",
+  "version": "0.1.0",
+  "description": "monoU Feishu connector: receive messages via WebSocket, route to Gateway agent, send reply back",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.58.0",
+    "@monou/gateway": "file:../../packages/gateway",
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.2"
+  }
+}

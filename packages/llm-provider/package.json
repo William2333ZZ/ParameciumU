@@ -1,0 +1,28 @@
+{
+	"name": "@monou/llm-provider",
+	"version": "0.1.0",
+	"description": "Unified LLM API: multi-provider registry, stream/complete, adapter for agent-core",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": ["dist", "README.md"],
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "npx tsc -p tsconfig.build.json",
+		"dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "vitest --run --passWithNoTests",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"dependencies": {
+		"openai": "^4.77.0"
+	},
+	"keywords": ["monou", "llm", "openai", "provider", "stream"],
+	"author": "",
+	"license": "MIT",
+	"engines": { "node": ">=20.0.0" },
+	"devDependencies": {
+		"@types/node": "^22.10.5",
+		"typescript": "^5.9.2",
+		"vitest": "^3.2.4"
+	}
+}

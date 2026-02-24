@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+.u/
+.gateway/
+**/.agent-client.pid
+.DS_Store
+*.tsbuildinfo
+coverage/
+.idea/
+.vscode/
+*.local
+
+# 内嵌参考仓库，不纳入本库版本控制
+openclaw/
+pi-mono/
+skills/

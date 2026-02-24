@@ -1,0 +1,16 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"paths": {
+			"@monou/agent-core": ["./packages/agent-core/src/index.ts"],
+			"@monou/agent-core/*": ["./packages/agent-core/src/*"],
+			"@monou/agent-sdk": ["./packages/agent-sdk/src/index.ts"],
+			"@monou/agent-sdk/*": ["./packages/agent-sdk/src/*"],
+			"@monou/shared": ["./packages/shared/src/index.ts"],
+			"@monou/shared/*": ["./packages/shared/src/*"]
+		}
+	},
+	"include": ["packages/*/src/**/*", "packages/*/test/**/*", "apps/*/src/**/*"],
+	"exclude": ["**/dist/**"]
+}
