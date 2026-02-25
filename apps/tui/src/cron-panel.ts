@@ -7,8 +7,8 @@ import type { Component } from "@monou/tui";
 import type { GatewayClient } from "./gateway-client.js";
 import type { TUI } from "@monou/tui";
 
-const TITLE = "TUI · 定时任务";
-const FOOTER = "c 返回对话  q 退出  Enter 操作";
+const TITLE = "Cron · 定时任务";
+const FOOTER = "c 对话  a/d 切换 Agent  q 退出  ↑↓ 选择  Enter 操作";
 
 export type Schedule =
   | { kind: "at"; at: string }
@@ -64,6 +64,8 @@ export type CronPanelCallbacks = {
   onQuit: () => void;
   onSwitchToChat: () => void;
   onRefresh: () => void;
+  onAgentPrev?: () => void;
+  onAgentNext?: () => void;
 };
 
 export class CronPanel implements Component {
@@ -74,14 +76,21 @@ export class CronPanel implements Component {
     private gw: GatewayClient,
     private tui: TUI,
     private callbacks: CronPanelCallbacks,
+    private getAgentId: () => string = () => ".u",
+    private getAgentIds: () => string[] = () => [".u"],
   ) {}
 
   invalidate(): void {}
 
   render(width: number): string[] {
     const jobs = this.getJobs();
+    const agentId = this.getAgentId();
+    const agentIds = this.getAgentIds();
     const lines: string[] = [];
     lines.push(truncateToWidth(theme.header(TITLE), width, ""));
+    lines.push("");
+    const agentLine = `  Agent: ${theme.accent(agentId)}  ${agentIds.length > 1 ? theme.dim("a 上一个 d 下一个") : ""}`;
+    lines.push(truncateToWidth(agentLine, width, ""));
     lines.push("");
     if (jobs.length === 0) {
       lines.push(truncateToWidth(theme.dim("  (无定时任务)"), width, ""));
@@ -105,6 +114,14 @@ export class CronPanel implements Component {
     }
     if (matchesKey(data, "c")) {
       this.callbacks.onSwitchToChat();
+      return;
+    }
+    if (data === "a" || data === "A") {
+      this.callbacks.onAgentPrev?.();
+      return;
+    }
+    if (data === "d" || data === "D") {
+      this.callbacks.onAgentNext?.();
       return;
     }
     if (jobs.length === 0) return;
@@ -143,15 +160,16 @@ export class CronPanel implements Component {
       width: 36,
       maxHeight: 10,
     });
+    const agentId = this.getAgentId();
     selectList.onSelect = async (item: { value: string }) => {
       handle.hide();
       try {
         if (item.value === "run") {
-          await this.gw.call("cron.run", { id: job.id, mode: "force" }, 10_000);
+          await this.gw.call("cron.run", { id: job.id, agentId, mode: "force" }, 10_000);
         } else if (item.value === "toggle") {
           await this.gw.call(
             "cron.update",
-            { id: job.id, patch: { enabled: !job.enabled } },
+            { id: job.id, agentId, patch: { enabled: !job.enabled } },
             10_000,
           );
         }

@@ -69,7 +69,6 @@ export function createGatewayWsServer(opts: GatewayWsServerOptions): WebSocketSe
         send(ws, { id, ok: false, error: { code: 400, message: "Missing method" } });
         return;
       }
-
       if (method === CONNECT_METHOD && params && typeof params === "object") {
         if (authRequired) {
           const result = verifyConnect(auth, params as Record<string, unknown>);

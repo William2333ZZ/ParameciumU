@@ -12,7 +12,8 @@ import path from "node:path";
 import process from "node:process";
 import WebSocket from "ws";
 import { buildSessionFromU, createAgentContextFromU } from "@monou/agent-from-dir";
-import { runAgentTurnWithTools } from "@monou/agent-sdk";
+import { runAgentTurnWithTools, type AgentMessage } from "@monou/agent-sdk";
+import { createId } from "@monou/shared";
 import { CronStore, type CronJob } from "@monou/cron";
 import { runScheduler } from "@monou/cron/scheduler";
 
@@ -67,10 +68,65 @@ function createGatewayInvoke(wsRef: WebSocket): (method: string, params?: Record
   return (method: string, params?: Record<string, unknown>) => request(wsRef, method, params ?? {});
 }
 
-async function runOneTurn(message: string): Promise<{ text: string; toolCalls?: Array<{ name: string; arguments?: string }> }> {
+/** Gateway 下发的 initialMessages 与 agent-core AgentMessage 的转换（与 Gateway session-transcript 一致） */
+function wireToAgentMessages(
+  wire: Array<{ role: string; content?: string; toolCalls?: Array<{ id?: string; name: string; arguments?: string }>; toolCallId?: string; isError?: boolean }>,
+): AgentMessage[] {
+  return wire.map((m) => {
+    const id = createId();
+    const content = (m.content ?? "").trim() || " ";
+    if (m.role === "toolResult") {
+      return {
+        id,
+        role: "toolResult" as const,
+        content: [{ type: "text" as const, text: content }],
+        timestamp: Date.now(),
+        toolCallId: m.toolCallId ?? id,
+        isError: m.isError ?? false,
+      };
+    }
+    if (m.role === "assistant") {
+      const toolCalls = m.toolCalls?.map((tc, i) => ({
+        id: tc.id ?? `tc-${i}`,
+        name: tc.name,
+        arguments: tc.arguments,
+      }));
+      return {
+        id,
+        role: "assistant" as const,
+        content: [{ type: "text" as const, text: content }],
+        timestamp: Date.now(),
+        ...(toolCalls?.length && { toolCalls }),
+      };
+    }
+    if (m.role === "system") {
+      return {
+        id,
+        role: "system" as const,
+        content: [{ type: "text" as const, text: content }],
+        timestamp: Date.now(),
+      };
+    }
+    return {
+      id,
+      role: "user" as const,
+      content: [{ type: "text" as const, text: content }],
+      timestamp: Date.now(),
+    };
+  });
+}
+
+async function runOneTurn(
+  message: string,
+  initialMessagesWire?: Array<{ role: string; content?: string; toolCalls?: Array<{ id?: string; name: string; arguments?: string }>; toolCallId?: string; isError?: boolean }>,
+): Promise<{ text: string; toolCalls?: Array<{ name: string; arguments?: string }> }> {
   const gatewayInvoke = createGatewayInvoke(ws);
   const session = await buildSessionFromU(rootDir, { agentDir, gatewayInvoke });
-  const { state, config, streamFn } = createAgentContextFromU(session);
+  const initialMessages =
+    Array.isArray(initialMessagesWire) && initialMessagesWire.length > 0
+      ? wireToAgentMessages(initialMessagesWire)
+      : undefined;
+  const { state, config, streamFn } = createAgentContextFromU(session, { initialMessages });
   const result = await runAgentTurnWithTools(state, config, streamFn, message, session.executeTool);
   return {
     text: result.text,
@@ -188,7 +244,12 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
     else res(msg.payload);
     return;
   }
-  const payload = msg.payload as { id?: string; __agent?: boolean; message?: string } | undefined;
+  const payload = msg.payload as {
+    id?: string;
+    __agent?: boolean;
+    message?: string;
+    initialMessages?: Array<{ role: string; content?: string; toolCalls?: Array<{ id?: string; name: string; arguments?: string }>; toolCallId?: string; isError?: boolean }>;
+  } | undefined;
   if (msg.event === "node.invoke.request" && payload?.__agent === true && typeof payload.message === "string") {
     const invokeId = payload.id;
     const prevMemory = process.env.MEMORY_WORKSPACE;
@@ -196,7 +257,7 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
     process.env.MEMORY_WORKSPACE = agentDir;
     process.env.CRON_STORE = cronStorePath;
     try {
-      const result = await runOneTurn(payload.message);
+      const result = await runOneTurn(payload.message, payload.initialMessages);
       ws.send(JSON.stringify({ method: "node.invoke.result", params: { id: invokeId, result }, id: `result-${invokeId}` }));
     } catch (err) {
       ws.send(

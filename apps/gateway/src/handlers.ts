@@ -401,7 +401,7 @@ export function createHandlers(ctx: HandlersContext) {
         if (entry?.ws.readyState === 1) {
           const sessionKey = (params?.sessionKey as string)?.trim() || req?.entry?.sessionKey?.trim();
           const sessionId = (params?.sessionId as string)?.trim();
-          const store = loadSessionStore(sessionStorePath);
+          const store = loadSessionStore(sessionStorePath, { skipCache: true });
           const resolveOpts = { storePath: sessionStorePath, resetPolicy };
           const { sessionKey: resolvedKey, transcriptPath, entry: remoteEntry } = resolveSession(
             store,
@@ -409,6 +409,14 @@ export function createHandlers(ctx: HandlersContext) {
             mainTranscriptPath,
             resolveOpts,
           );
+          const stored = loadTranscript(transcriptPath, remoteEntry?.leafId ?? undefined);
+          const initialMessages = stored.map((m) => ({
+            role: m.role,
+            content: m.content,
+            ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
+            ...(m.toolCallId && { toolCallId: m.toolCallId }),
+            ...(m.isError !== undefined && { isError: m.isError }),
+          }));
           const id = nextInvokeId();
           return new Promise<GatewayResponse>((resolve) => {
             const timeout = setTimeout(() => {
@@ -435,7 +443,7 @@ export function createHandlers(ctx: HandlersContext) {
               } catch (_) {}
               resolve(ok(out));
             });
-            entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message } }));
+            entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
           });
         }
       }
@@ -458,7 +466,7 @@ export function createHandlers(ctx: HandlersContext) {
           if (entry?.ws.readyState === 1) {
             const sessionKey = (params?.sessionKey as string)?.trim() || req?.entry?.sessionKey?.trim();
             const sessionId = (params?.sessionId as string)?.trim();
-            const store = loadSessionStore(sessionStorePath);
+            const store = loadSessionStore(sessionStorePath, { skipCache: true });
             const resolveOpts = { storePath: sessionStorePath, resetPolicy };
             const { sessionKey: resolvedKey, transcriptPath, entry: remoteEntry } = resolveSession(
               store,
@@ -466,6 +474,14 @@ export function createHandlers(ctx: HandlersContext) {
               mainTranscriptPath,
               resolveOpts,
             );
+            const stored = loadTranscript(transcriptPath, remoteEntry?.leafId ?? undefined);
+            const initialMessages = stored.map((m) => ({
+              role: m.role,
+              content: m.content,
+              ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
+              ...(m.toolCallId && { toolCallId: m.toolCallId }),
+              ...(m.isError !== undefined && { isError: m.isError }),
+            }));
             const id = nextInvokeId();
             return new Promise<GatewayResponse>((resolve) => {
               const timeout = setTimeout(() => {
@@ -492,7 +508,7 @@ export function createHandlers(ctx: HandlersContext) {
                 } catch (_) {}
                 resolve(ok(out));
               });
-              entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message } }));
+              entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
             });
           }
         }
@@ -597,7 +613,7 @@ export function createHandlers(ctx: HandlersContext) {
       const sessionKey =
         (params?.sessionKey as string)?.trim() || req?.entry?.sessionKey?.trim();
       const sessionId = (params?.sessionId as string)?.trim();
-      const store = loadSessionStore(sessionStorePath);
+      const store = loadSessionStore(sessionStorePath, { skipCache: true });
       const resolveOpts = { storePath: sessionStorePath, resetPolicy };
       const { sessionKey: resolvedKey, transcriptPath, entry: resolvedEntry } = resolveSession(
         store,
@@ -616,12 +632,23 @@ export function createHandlers(ctx: HandlersContext) {
       const agentSlot = nodes.flatMap((n) => n.agents).find((a) => a.agentId === agentId);
       const connId = agentSlot?.connId;
       const isRemote = typeof connId === "string" && connId.length > 0;
+      if (process.env.GATEWAY_DEBUG_MEMORY) {
+        process.stderr.write(`[gateway] chat.send isRemote=${isRemote} connId=${connId ?? "null"} nodes=${nodes.length}\n`);
+      }
 
       const runOneTurnRemote = async (sk: string, msg: string): Promise<void> => {
-        const st = loadSessionStore(sessionStorePath);
+        const st = loadSessionStore(sessionStorePath, { skipCache: true });
         const res = resolveSession(st, { sessionKey: sk }, mainTranscriptPath, resolveOpts);
         const tpath = res.transcriptPath;
         const rkey = res.sessionKey;
+        const stored = loadTranscript(tpath, res.entry?.leafId ?? undefined);
+        const initialMessages = stored.map((m) => ({
+          role: m.role,
+          content: m.content,
+          ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
+          ...(m.toolCallId && { toolCallId: m.toolCallId }),
+          ...(m.isError !== undefined && { isError: m.isError }),
+        }));
         const n = getNodesFromConnections(connections);
         const slot = n.flatMap((no) => no.agents).find((a) => a.agentId === agentId);
         const cid = slot?.connId;
@@ -661,7 +688,10 @@ export function createHandlers(ctx: HandlersContext) {
             }
             resolvePromise();
           });
-          ent.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message: msg } }));
+          ent.ws.send(JSON.stringify({
+            event: "node.invoke.request",
+            payload: { id, __agent: true, message: msg, initialMessages },
+          }));
         });
       };
 
@@ -670,6 +700,17 @@ export function createHandlers(ctx: HandlersContext) {
         if (!entry || entry.ws.readyState !== 1) return fail(err(503, `agent ${agentId} not connected`));
         const id = nextInvokeId();
         if (ctx.sessionQueue) setActiveRun(ctx.sessionQueue, resolvedKey, id);
+        const stored = loadTranscript(transcriptPath, resolvedEntry?.leafId ?? undefined);
+        const initialMessages = stored.map((m) => ({
+          role: m.role,
+          content: m.content,
+          ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
+          ...(m.toolCallId && { toolCallId: m.toolCallId }),
+          ...(m.isError !== undefined && { isError: m.isError }),
+        }));
+        if (process.env.GATEWAY_DEBUG_MEMORY) {
+          process.stderr.write(`[gateway] chat.send remote initialMessages=${initialMessages.length} leafId=${resolvedEntry?.leafId ?? "null"}\n`);
+        }
         return new Promise<GatewayResponse>((resolve) => {
           const timeout = setTimeout(() => {
             if (pendingInvokes.delete(id)) {
@@ -702,7 +743,10 @@ export function createHandlers(ctx: HandlersContext) {
             }
             resolve(ok(out));
           });
-          entry!.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message } }));
+          entry!.ws.send(JSON.stringify({
+            event: "node.invoke.request",
+            payload: { id, __agent: true, message, initialMessages },
+          }));
         });
       }
 
