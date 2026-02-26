@@ -18,6 +18,7 @@ export const U_BASE_SKILL_NAMES = [
   "knowledge",
   "cron",
   "web_skill",
+  "browser_skill",
   "message_skill",
   "sessions_skill",
   "gateway_skill",

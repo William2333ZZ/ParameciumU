@@ -23,12 +23,19 @@ export function resolveTlsConfig(): TlsConfig | null {
 
 /**
  * 创建 https.Server；证书与私钥从文件同步读取。
+ * 若传入 onRequest，对所有请求调用 onRequest(req, res)，由调用方负责结束响应；否则返回 404。
  */
-export function createHttpsServer(config: TlsConfig): import("node:https").Server {
+export function createHttpsServer(
+  config: TlsConfig,
+  onRequest?: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void,
+): import("node:https").Server {
   const cert = readFileSync(config.certPath, "utf8");
   const key = readFileSync(config.keyPath, "utf8");
-  return https.createServer({ cert, key }, (_req, res) => {
-    res.writeHead(404);
-    res.end("Not Found");
+  return https.createServer({ cert, key }, (req, res) => {
+    if (onRequest) onRequest(req, res);
+    else {
+      res.writeHead(404);
+      res.end("Not Found");
+    }
   });
 }

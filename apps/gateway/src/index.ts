@@ -15,6 +15,8 @@
  */
 
 import "dotenv/config";
+import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +33,7 @@ import { loadConnectorMappingsSync, saveConnectorMappings } from "./mappings-sto
 import { resolveSessionStorePath, ensureSessionStoreReady, getDefaultTranscriptPath, clearSessionStoreAndTranscripts } from "./session-store.js";
 import { createSessionQueueState } from "./queue.js";
 import { discoverHooks, emitHook } from "./hooks.js";
+import { resolveScreenshotPath, getLatestPendingScreenshotPath } from "./screenshots.js";
 
 const PORT =
   Number(
@@ -80,6 +83,44 @@ ctx.runAgent = undefined;
 const auth = resolveAuthConfig();
 const tlsConfig = resolveTlsConfig();
 
+/** 处理 HTTP(S) 请求：GET /api/screenshots/:sessionKey/:id 返回截图文件，其余 404 */
+function createScreenshotRequestHandler(
+  screenshotsDir: string,
+): (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void {
+  const prefix = "/api/screenshots/";
+  return (req, res) => {
+    const pathname = req.url?.split("?")[0] ?? "";
+    if (req.method === "GET" && pathname.startsWith(prefix)) {
+      const rest = pathname.slice(prefix.length);
+      const idx = rest.indexOf("/");
+      if (idx === -1) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      const sessionKey = decodeURIComponent(rest.slice(0, idx));
+      const id = rest.slice(idx + 1);
+      let filePath: string | null;
+      if (sessionKey === "pending" && id === "latest") {
+        filePath = getLatestPendingScreenshotPath(screenshotsDir);
+      } else {
+        filePath = resolveScreenshotPath(screenshotsDir, sessionKey, id);
+      }
+      if (!filePath) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      res.setHeader("Content-Type", ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png");
+      fs.createReadStream(filePath).pipe(res);
+      return;
+    }
+    res.statusCode = 404;
+    res.end();
+  };
+}
+
 function logListen(port: number, host: string): void {
   const scheme = tlsConfig ? "wss" : "ws";
   const hostname = os.hostname();
@@ -101,7 +142,7 @@ let wss: import("ws").WebSocketServer;
 let httpOrHttpsServer: import("node:http").Server | import("node:https").Server | undefined;
 
 if (tlsConfig) {
-  httpOrHttpsServer = createHttpsServer(tlsConfig);
+  httpOrHttpsServer = createHttpsServer(tlsConfig, createScreenshotRequestHandler(ctx.screenshotsDir));
   wss = createGatewayWsServer({
     context: ctx,
     handlers,
@@ -121,25 +162,25 @@ if (tlsConfig) {
     );
   });
 } else {
+  httpOrHttpsServer = http.createServer(createScreenshotRequestHandler(ctx.screenshotsDir));
   wss = createGatewayWsServer({
-    port: PORT,
-    host: HOST,
     context: ctx,
     handlers,
     auth,
-    onListen: async () => {
-      logListen(PORT, HOST);
-      await emitHook(
-        { type: "gateway", action: "startup", context: { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR } },
-        hooks,
-        { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR },
-      );
-    },
+    server: httpOrHttpsServer,
   });
   ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
   ctx.pushToConnector = (connectorId, event, payload) =>
     pushToConnector(ctx, connectorId, event, payload);
   startHeartbeatTimeoutCheck(ctx);
+  httpOrHttpsServer.listen(PORT, HOST, async () => {
+    logListen(PORT, HOST);
+    await emitHook(
+      { type: "gateway", action: "startup", context: { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR } },
+      hooks,
+      { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR },
+    );
+  });
 }
 
 let shuttingDown = false;

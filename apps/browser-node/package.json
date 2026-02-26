@@ -1,0 +1,24 @@
+{
+  "name": "@monou/browser-node",
+  "version": "0.1.0",
+  "description": "Browser Node：以 role=node 连接 Gateway，声明 capabilities: [\"browser\"]，用 WebKit 执行 browser_fetch 等",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": { "monou-browser-node": "./dist/index.js" },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "playwright": "^1.49.0",
+    "ws": "^8.18.0"
+  },
+  "engines": { "node": ">=20.0.0" },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.9.2"
+  }
+}

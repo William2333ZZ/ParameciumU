@@ -136,10 +136,38 @@ GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.s
 
 ---
 
+## 7. browser-node（@monou/browser-node）
+
+**职责**：L3 Node（浏览器）。以 role=node 连接 Gateway，声明 **capabilities: ["browser"]**，用 Playwright WebKit 执行 browser_fetch 等；供 node.invoke 定向调用。其他 Agent 可通过 **node.list** 或 **gateway_browser_nodes** 发现具备 browser 能力的节点（类似 MCP 发现）。
+
+**运行**：
+
+```bash
+# 先安装 WebKit：npx playwright install webkit
+cd apps/browser-node && npm run build
+GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
+# 或从根目录（需先构建）：GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
+```
+
+**环境变量**：
+
+| 变量 | 说明 | 默认 |
+|------|------|------|
+| GATEWAY_URL | Gateway WebSocket 地址 | 必填 |
+| BROWSER_NODE_ID | 本节点 ID（node.list 可见） | browser-1 |
+| BROWSER_HEADED | 1= 有头（可见窗口） | 0（无头） |
+| BROWSER_USER_DATA_DIR | 浏览器 profile 持久化目录（登录态保留） | - |
+| GATEWAY_TOKEN / GATEWAY_PASSWORD | 可选认证 | - |
+
+**协议**：node.invoke 支持 `browser_fetch`（打开 URL、正文+截图）、`browser_links`（当前页链接）、`browser_click`（按文本/选择器点击）、`browser_fill`（输入框填入）、`browser_screenshot`、`browser_pages`/`browser_switch`/`browser_new_tab` 等。Agent 端 **browser_skill** 提供 browser_nodes、browser_capabilities、browser_fetch、browser_links、browser_click、browser_fill 等工具。
+
+---
+
 ## 脚本入口（根 package.json）
 
 - `npm run gateway` → 启动 apps/gateway
 - `npm run agent` → 启动 apps/agent
+- `npm run browser-node` → 启动 apps/browser-node（需先在该 app 下 build 并安装 webkit）
 - `npm run sandbox-node` → 启动 apps/sandbox-node
 - `npm run control-ui` → 开发 apps/control-ui（Vite）
 - `npm run u` → scripts/run-u.ts（本机 .u 对话，不接 Gateway）

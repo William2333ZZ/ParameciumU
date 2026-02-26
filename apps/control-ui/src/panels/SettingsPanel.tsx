@@ -52,21 +52,20 @@ function DebugInfoBlock() {
   }, [open]);
 
   return (
-    <div className="settings-debug-block" style={{ marginTop: "1rem" }}>
+    <div className="settings-debug-block">
       <button
         type="button"
-        className="nav-item"
-        style={{ fontSize: "0.9rem", marginBottom: "0.5rem" }}
+        className="settings-debug-toggle"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
         {open ? "▼" : "▶"} 调试信息（health / status，不含 cron）
       </button>
       {open && (
-        <div className="card" style={{ padding: "0.75rem", fontSize: "0.8rem" }}>
+        <div className="card settings-debug-card">
           {err && <p className="error">{err}</p>}
           {data && (
-            <pre style={{ margin: 0, overflow: "auto", maxHeight: "20rem", whiteSpace: "pre-wrap" }}>
+            <pre className="settings-debug-pre">
               {JSON.stringify(data, null, 2)}
             </pre>
           )}
@@ -82,7 +81,7 @@ export function SettingsPanel({ onDisconnect }: Props) {
   const stored = getStoredConnection();
 
   return (
-    <div className="card">
+    <div className="settings-panel card">
       <h3>连接设置</h3>
       <p className="muted" style={{ fontSize: "0.85rem", marginBottom: "0.75rem" }}>
         Token 已保存在本地，仅用于自动填充

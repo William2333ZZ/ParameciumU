@@ -24,8 +24,10 @@
 │   ├── skill-creator/
 │   ├── knowledge/
 │   ├── web_skill/
+│   ├── browser_skill/
 │   ├── message_skill/
 │   ├── sessions_skill/
+│   ├── gateway_skill/
 │   └── ...           # 其它自建技能
 ├── memory/           # 可选，memory skill 使用
 ├── MEMORY.md         # 可选
@@ -37,7 +39,7 @@
 ```
 
 - **路径约定**：`getAgentDir(rootDir)` 默认返回 `path.join(rootDir, ".u")`；多 Agent 时通过环境变量 `AGENT_DIR` 或参数 `agentDir` 指定。
-- **必备技能名**：与 `packages/agent-template/src/index.ts` 中 `U_BASE_SKILL_NAMES` 一致：`base_skill`、`skill-creator`、`memory`、`knowledge`、`cron`、`web_skill`、`message_skill`、`sessions_skill`。`ensureAgentDir()` 会从包内 template 补齐缺失项。
+- **必备技能名**：与 `packages/agent-template/src/index.ts` 中 `U_BASE_SKILL_NAMES` 一致：`base_skill`、`skill-creator`、`memory`、`knowledge`、`cron`、`web_skill`、`browser_skill`、`message_skill`、`sessions_skill`、`gateway_skill`。`ensureAgentDir()` 会从包内 template 补齐缺失项。
 - **会话**：不放在 agent 目录；由 Gateway 管理（`.gateway/sessions/sessions.json`、`transcripts/`）。
 
 ### 1.2 从目录加载 Session 与 Context
@@ -48,7 +50,7 @@
 | 构建 Session | `@monou/agent-from-dir`: `buildSessionFromU(rootDir, opts?)` | 解析 `agentDir`、发现 `skills/` 下所有带 `SKILL.md` 的子目录，加载各技能 `scripts/tools.ts` 或 `tools.js`，合并为 `mergedTools` 并实现统一 `executeTool(name, args)` |
 | 构建 Context | `@monou/agent-from-dir`: `createAgentContextFromU(session, opts?)` | 读 `SOUL.md`、`IDENTITY.md`，组装 system prompt；调用 `createAgent` 得到 `state`、`config`、`streamFn`；可选 `initialMessages`（如从 transcript 加载） |
 
-- **buildSessionFromU** 的 `executeTool` 按工具名路由到 memory、knowledge、cron、web_skill、message_skill、sessions_skill 或各技能脚本的 `executeTool`；若传入 `gatewayInvoke`，则 message_skill、sessions_skill 可调 Gateway RPC。
+- **buildSessionFromU** 的 `executeTool` 按工具名路由到 memory、knowledge、cron、web_skill、browser_skill、message_skill、sessions_skill、gateway_skill 或各技能脚本的 `executeTool`；若传入 `gatewayInvoke`，则 browser_skill、message_skill、sessions_skill、gateway_skill 可调 Gateway RPC。
 - **createAgentContextFromU** 使用 `@monou/agent-sdk` 的 `createAgent`，注入 SOUL/IDENTITY、日期时间上下文，以及 `formatSkillsForPrompt(skillDirs)` 生成的技能说明。
 
 ---

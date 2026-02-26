@@ -47,11 +47,20 @@ const CRON_TOOL_NAMES = new Set([
   "cron_start_scheduler",
 ]);
 const WEB_TOOL_NAMES = new Set(["web_fetch", "web_search"]);
+const BROWSER_TOOL_NAMES = new Set([
+  "browser_nodes",
+  "browser_capabilities",
+  "browser_fetch",
+  "browser_links",
+  "browser_click",
+  "browser_fill",
+]);
 const MESSAGE_TOOL_NAMES = new Set(["send_message"]);
 const SESSIONS_TOOL_NAMES = new Set(["sessions_list", "sessions_preview", "sessions_send"]);
 const GATEWAY_TOOL_NAMES = new Set([
   "gateway_agents_list",
   "gateway_nodes_list",
+  "gateway_browser_nodes",
   "gateway_cron_list",
   "gateway_skills_status",
 ]);
@@ -133,6 +142,14 @@ export async function buildSessionFromU(
   const webSkillTools = webSkillModule.tools;
   const webSkillExecuteTool = webSkillModule.executeTool as (name: string, args: Record<string, unknown>) => Promise<{ content: string; isError?: boolean }>;
 
+  const browserSkillModule = await loadSkillModule(toolsPath("browser_skill"));
+  const browserSkillTools = browserSkillModule.tools;
+  const browserSkillExecuteTool = browserSkillModule.executeTool as (
+    name: string,
+    args: Record<string, unknown>,
+    gatewayInvoke?: GatewayInvoke,
+  ) => Promise<{ content: string; isError?: boolean }>;
+
   const messageSkillModule = await loadSkillModule(toolsPath("message_skill"));
   const messageSkillTools = messageSkillModule.tools;
   const messageSkillExecuteTool = messageSkillModule.executeTool as (name: string, args: Record<string, unknown>, gatewayInvoke?: GatewayInvoke) => Promise<{ content: string; isError?: boolean }>;
@@ -153,7 +170,7 @@ export async function buildSessionFromU(
   const cronExecuteTool = cronModule.executeTool;
 
   const { tools: scriptTools, entries: scriptEntries } = loadSkillScriptTools(skillDirs, {
-    excludeDirNames: ["base_skill", "skill-creator", "memory", "knowledge", "cron", "web_skill", "message_skill", "sessions_skill", "gateway_skill"],
+    excludeDirNames: ["base_skill", "skill-creator", "memory", "knowledge", "cron", "web_skill", "browser_skill", "message_skill", "sessions_skill", "gateway_skill"],
   });
   const executeSkillScript = createSkillScriptExecutor(scriptEntries);
 
@@ -200,6 +217,7 @@ export async function buildSessionFromU(
     ...knowledgeTopicTools,
     ...cronTools,
     ...webSkillTools,
+    ...browserSkillTools,
     ...messageSkillTools,
     ...sessionsSkillTools,
     ...gatewaySkillTools,
@@ -224,6 +242,7 @@ export async function buildSessionFromU(
     }
     if (CRON_TOOL_NAMES.has(name)) return cronExecuteTool(name, args);
     if (WEB_TOOL_NAMES.has(name)) return webSkillExecuteTool(name, args);
+    if (BROWSER_TOOL_NAMES.has(name)) return browserSkillExecuteTool(name, args, gatewayInvoke);
     if (MESSAGE_TOOL_NAMES.has(name)) return messageSkillExecuteTool(name, args, gatewayInvoke);
     if (SESSIONS_TOOL_NAMES.has(name)) return sessionsSkillExecuteTool(name, args, gatewayInvoke);
     if (GATEWAY_TOOL_NAMES.has(name)) return gatewaySkillExecuteTool(name, args, gatewayInvoke);

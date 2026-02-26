@@ -425,6 +425,16 @@ a {
 }
 .tool-card-result-body code { font-size: 0.9em; background: var(--bg); padding: 0.1em 0.25em; border-radius: 3px; }
 
+/* 对话中 Markdown 图像（如 browser_fetch 截图），支持 data URL，图像模态 */
+.chat-markdown-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin: 0.5rem 0;
+  display: block;
+}
+
 .tool-card--result-only .tool-card-result-body {
   padding-top: 0;
 }
@@ -983,6 +993,521 @@ a {
   color: var(--muted);
 }
 
+/* ========== Slack/飞书/微信 三栏布局 ========== */
+.slack-layout {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.conversation-list-column {
+  width: 260px;
+  min-width: 260px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.conversation-list-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.conversation-list-section {
+  flex-shrink: 0;
+}
+
+.conversation-list-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.5rem 0;
+  padding: 0 0.25rem;
+}
+
+.conversation-list-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.conversation-list-section-head .conversation-list-section-title {
+  margin: 0;
+}
+
+.conversation-list-new-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.conversation-list-new-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.conversation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.conversation-list-item {
+  margin: 0;
+}
+
+.conversation-list-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.conversation-list-btn:hover {
+  background: var(--bg);
+}
+
+.conversation-list-btn.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--accent);
+}
+
+.conversation-list-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.conversation-list-dot.online {
+  background: var(--success);
+}
+
+.conversation-list-unread {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+}
+
+.conversation-list-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-list-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.conversation-list-empty {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 0.35rem 0.6rem;
+  margin: 0;
+}
+
+/* 消息视图下主内容区（聊天或欢迎页） */
+.main-content-chat {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content-chat .chat-view-single {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-content-full {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 欢迎页（未选会话时） */
+.chat-welcome {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg);
+}
+
+.chat-welcome-inner {
+  text-align: center;
+  max-width: 360px;
+}
+
+.chat-welcome-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--text);
+}
+
+.chat-welcome-desc {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.chat-welcome-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chat-welcome-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* ========== 通讯录（微信式）========== */
+.contacts-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.contacts-list-column {
+  width: 240px;
+  min-width: 240px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 0.75rem;
+}
+
+.contacts-list-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.contacts-list-by-node {
+  flex: 1;
+  overflow: auto;
+  padding: 0.5rem 0;
+}
+
+.contacts-node-group {
+  margin-bottom: 0.75rem;
+}
+
+.contacts-node-group:last-child {
+  margin-bottom: 0;
+}
+
+.contacts-node-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 0.35rem 0;
+  padding: 0 1rem;
+}
+
+.contacts-node-empty {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0;
+  padding: 0.25rem 1rem;
+}
+
+.contacts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.contacts-node-group .contacts-list {
+  padding: 0 0 0 0.25rem;
+}
+
+.contacts-list-item {
+  margin: 0;
+}
+
+.contacts-list-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.contacts-list-btn:hover {
+  background: var(--bg);
+}
+
+.contacts-list-btn.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--accent);
+}
+
+.contacts-list-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.contacts-list-dot.online {
+  background: var(--success);
+}
+
+.contacts-list-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contacts-detail-column {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.contacts-detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.contacts-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.contacts-detail-agent {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.contacts-send-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.contacts-send-btn:hover {
+  background: var(--accent-hover);
+}
+
+.contacts-detail-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.contacts-detail-section {
+  flex-shrink: 0;
+}
+
+.contacts-detail-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.5rem 0;
+}
+
+.contacts-detail-status {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.contacts-status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: var(--border);
+  color: var(--muted);
+}
+
+.contacts-status-badge.online {
+  background: rgba(52, 211, 153, 0.2);
+  color: var(--success);
+}
+
+.contacts-cron-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.contacts-cron-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  gap: 0.75rem;
+}
+
+.contacts-cron-item:last-child {
+  border-bottom: none;
+}
+
+.contacts-session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.contacts-session-item {
+  margin: 0;
+}
+
+.contacts-session-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.5rem 0;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  gap: 0.2rem;
+}
+
+.contacts-session-btn:hover {
+  background: var(--bg);
+}
+
+.contacts-session-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.contacts-session-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 通讯录详情区：状态/定时任务/历史对话 提高对比度，避免灰字看不清 */
+.contacts-detail-status,
+.contacts-detail-section .muted {
+  color: var(--text);
+}
+
+.contacts-detail-status .muted {
+  color: var(--muted);
+}
+
+.contacts-cron-item strong,
+.contacts-cron-item .muted {
+  color: var(--text);
+}
+
+.contacts-cron-item .muted {
+  opacity: 0.85;
+}
+
+.contacts-cron-item .run-btn,
+.contacts-panel .run-btn {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.contacts-cron-item .run-btn:hover,
+.contacts-panel .run-btn:hover {
+  background: var(--accent-hover);
+}
+
 .main-content {
   flex: 1;
   min-width: 0;
@@ -1014,6 +1539,92 @@ a {
 /* 非对话页（拓扑、Cron 等）内容过多时可滚动 */
 .main-content > *:not(.chat-view) {
   overflow: auto;
+}
+
+/* ========== Browser Tab：VNC 内嵌（与 control-ui 连上，不单独用 6080）========== */
+.browser-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.browser-panel-header {
+  flex-shrink: 0;
+  padding: 0.5rem 0 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.browser-panel-toolbar {
+  flex-shrink: 0;
+  padding: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.browser-panel-select {
+  padding: 0.35rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  min-width: 12rem;
+}
+
+.browser-panel-btn {
+  padding: 0.35rem 0.75rem;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.browser-panel-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.browser-panel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.browser-panel-screenshot-wrap {
+  padding: 0.5rem;
+  overflow: auto;
+  max-height: 100%;
+}
+
+.browser-panel-screenshot {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.browser-panel-title {
+  font-weight: 600;
+}
+
+.browser-panel-iframe-wrap {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.browser-panel-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  border: none;
 }
 
 /* ========== 拓扑 Tab：列表 | 图 切换 ========== */
@@ -1330,6 +1941,26 @@ a {
   font-size: 0.9rem;
 }
 
+/* 设置页：整页深色底、浅色字，避免白底灰字 */
+.settings-panel {
+  background: var(--surface) !important;
+  color: var(--text);
+}
+
+.settings-panel h3,
+.settings-panel .settings-dl dt {
+  color: var(--text);
+}
+
+.settings-panel .settings-dl dd {
+  color: var(--text);
+  margin: 0;
+}
+
+.settings-panel .settings-dl dd.muted {
+  opacity: 0.9;
+}
+
 .settings-dl {
   margin: 0 0 1rem 0;
   font-size: 0.9rem;
@@ -1361,4 +1992,64 @@ a {
 .settings-disconnect:hover {
   color: var(--error);
   border-color: var(--error);
+}
+
+/* 调试信息：折叠按钮样式（不用侧栏 nav-item） */
+.settings-debug-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-debug-toggle:hover {
+  background: var(--bg);
+  border-color: var(--muted);
+}
+
+/* 调试信息：深色底 + 浅色字，避免白底灰字看不清 */
+.settings-panel .settings-debug-block .card.settings-debug-card,
+.settings-panel .settings-debug-block .card,
+.settings-debug-block .card.settings-debug-card,
+.settings-debug-block .card {
+  background: var(--bg) !important;
+  border: 1px solid var(--border);
+  border-color: var(--border);
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.settings-panel .settings-debug-block pre,
+.settings-debug-block pre.settings-debug-pre,
+.settings-debug-block pre {
+  margin: 0 !important;
+  overflow: auto;
+  max-height: 20rem;
+  white-space: pre-wrap;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.settings-panel .settings-debug-block .muted,
+.settings-debug-block .muted {
+  color: var(--text) !important;
+}
+
+.settings-panel .settings-debug-block .error,
+.settings-debug-block .error {
+  color: var(--error) !important;
 }

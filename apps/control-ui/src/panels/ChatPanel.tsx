@@ -4,6 +4,32 @@ import remarkGfm from "remark-gfm";
 import { gatewayClient } from "../gateway-client";
 import type { SessionPreview } from "../types";
 
+/** 对话中 Markdown 支持图像模态：data URL 与 /api/screenshots/ 文件地址均可渲染 */
+const markdownComponents = {
+  img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+    const opts = gatewayClient.getOptions();
+    const base =
+      opts?.url
+        ? new URL(opts.url.replace(/^ws/, "http")).origin
+        : "";
+    const resolvedSrc =
+      src === "attachment:screenshot.png" && base
+        ? base + "/api/screenshots/pending/latest"
+        : src?.startsWith("/api/screenshots/") && base
+          ? base + src
+          : src;
+    return (
+      <img
+        src={resolvedSrc}
+        alt={alt ?? ""}
+        className="chat-markdown-img"
+        loading="lazy"
+        {...props}
+      />
+    );
+  },
+};
+
 type ToolCall = { id?: string; name: string; arguments?: string };
 
 type ToolResultMessage = { role: "toolResult"; text: string; toolCallId?: string; isError?: boolean };
@@ -79,7 +105,15 @@ function buildDisplayBlocks(messages: ChatMessage[]): DisplayBlock[] {
   return blocks;
 }
 
-function ToolCard({ call, result }: { call: ToolCall; result: ToolResultMessage | undefined }) {
+function ToolCard({
+  call,
+  result,
+  components = markdownComponents,
+}: {
+  call: ToolCall;
+  result: ToolResultMessage | undefined;
+  components?: typeof markdownComponents;
+}) {
   const args = call.arguments != null && call.arguments !== "" ? call.arguments : null;
   const parsed = args ? tryParseArgs(args) : null;
   const hasArgs = args && args.trim().length > 0;
@@ -103,7 +137,7 @@ function ToolCard({ call, result }: { call: ToolCall; result: ToolResultMessage 
         <div className={`tool-card-result ${result.isError ? "error" : ""}`}>
           <span className="tool-card-result-label">{result.isError ? "错误" : "返回"}</span>
           <div className="tool-card-result-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.text || "—"}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{result.text || "—"}</ReactMarkdown>
           </div>
         </div>
       )}
@@ -128,7 +162,7 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
           <span className="tool-card-name">{msg.isError ? "工具错误" : "工具返回"}</span>
         </div>
         <div className="tool-card-result-body">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text || "—"}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text || "—"}</ReactMarkdown>
         </div>
       </div>
     );
@@ -140,7 +174,7 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
       <div className="chat-msg agent">
         <div className="chat-msg-content">
           {msg.text ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text}</ReactMarkdown>
           ) : (
             <span className="muted">—</span>
           )}
@@ -154,7 +188,7 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
       {text.trim() && (
         <div className="chat-msg agent">
           <div className="chat-msg-content">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{text}</ReactMarkdown>
           </div>
         </div>
       )}
@@ -536,16 +570,6 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     <div className="chat-view">
       <aside className="chat-sidebar">
         <div className="chat-sidebar-section">
-          <label className="chat-sidebar-label">Agent</label>
-          <input
-            type="text"
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-            placeholder=".u"
-            className="chat-agent-input"
-          />
-        </div>
-        <div className="chat-sidebar-section">
           <div className="chat-sidebar-label-row">
             <span className="chat-sidebar-label">会话</span>
             <span className="chat-sidebar-actions">
@@ -599,7 +623,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       <div className="chat-main">
         <div className="chat-area">
           <header className="chat-agent-header" aria-live="polite">
-            与 <strong>{agentId || ".u"}</strong> 对话
+            对话
           </header>
           <div className="chat-messages">
             {historyLoading && <p className="muted">加载历史…</p>}
@@ -612,7 +636,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
             {streamingText && (
               <div className="chat-msg agent streaming">
                 <div className="chat-msg-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingText}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{streamingText}</ReactMarkdown>
                 </div>
                 <span className="chat-cursor" />
               </div>

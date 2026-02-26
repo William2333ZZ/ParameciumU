@@ -50,7 +50,7 @@
 - **scripts/**：可选，脚本或工具实现；可由 agent-sdk / agent-from-dir 的 loadSkillScriptTools、createSkillScriptExecutor 加载为 Agent 工具。
 - **references/**：可选，参考资料。
 
-必备技能名（与 @monou/agent-template 的 U_BASE_SKILL_NAMES 一致）：base_skill、skill-creator、memory、knowledge、cron、web_skill、message_skill、sessions_skill 等。使用 `ensureAgentDir()` 时会从包内模板补齐缺失项。
+必备技能名（与 @monou/agent-template 的 U_BASE_SKILL_NAMES 一致）：base_skill、skill-creator、memory、knowledge、cron、web_skill、browser_skill、message_skill、sessions_skill、gateway_skill 等。使用 `ensureAgentDir()` 时会从包内模板补齐缺失项。
 
 ## 三、知识库（knowledge 模块）
 

@@ -20,6 +20,10 @@ export type NodeItem = {
   deviceId?: string;
   connId: string;
   agents: NodeAgent[];
+  /** connect 时声明的能力，如 ["browser"]，用于筛 Browser 节点 */
+  capabilities?: string[];
+  /** Browser 节点上报的 noVNC 端口，Control UI 通过 /vnc/:port 代理（多节点各用各口） */
+  vncPort?: number;
 };
 
 /** 已连接的接入（如飞书 App 长连后） */

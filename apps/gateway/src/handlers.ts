@@ -28,6 +28,7 @@ import {
   loadTranscriptTree,
   initTranscript,
 } from "./session-transcript.js";
+import { saveScreenshotsInContent, saveBase64ToScreenshotFile, replaceAttachmentPlaceholderWithPendingUrl } from "./screenshots.js";
 import {
   isSessionActive,
   setActiveRun,
@@ -410,12 +411,12 @@ export function createHandlers(ctx: HandlersContext) {
             resolveOpts,
           );
           const stored = loadTranscript(transcriptPath, remoteEntry?.leafId ?? undefined);
+          // 不把 assistant 的 toolCalls 传给 LLM：transcript 未存 tool 结果，会导致 API 400
           const initialMessages = stored.map((m) => ({
             role: m.role,
             content: m.content,
-            ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
-            ...(m.toolCallId && { toolCallId: m.toolCallId }),
-            ...(m.isError !== undefined && { isError: m.isError }),
+            ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
+            ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
           }));
           const id = nextInvokeId();
           return new Promise<GatewayResponse>((resolve) => {
@@ -429,19 +430,18 @@ export function createHandlers(ctx: HandlersContext) {
                 ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
                 : { text: String(result ?? ""), toolCalls: [] };
               try {
-                const assistantToolCalls = out.toolCalls?.map((tc, i) => ({
-                  id: (tc as { id?: string }).id ?? `tc-${i}`,
-                  name: tc.name,
-                  arguments: tc.arguments,
-                }));
+                // base64 截图落盘并替换为 URL；持久化与返回给 Agent 均用替换后内容，避免 Agent 把 base64 再发给 LLM 导致超 token
+                const withUrls = saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir);
+                const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
                 const toAppend = [
                   { role: "user" as const, content: message as string },
-                  { role: "assistant" as const, content: out.text, ...(assistantToolCalls?.length ? { toolCalls: assistantToolCalls } : {}) },
+                  { role: "assistant" as const, content: assistantContent },
                 ];
                 const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
                 updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
               } catch (_) {}
-              resolve(ok(out));
+              const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
+              resolve(ok({ ...out, text: textForAgent }));
             });
             entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
           });
@@ -478,9 +478,8 @@ export function createHandlers(ctx: HandlersContext) {
             const initialMessages = stored.map((m) => ({
               role: m.role,
               content: m.content,
-              ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
-              ...(m.toolCallId && { toolCallId: m.toolCallId }),
-              ...(m.isError !== undefined && { isError: m.isError }),
+              ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
+              ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
             }));
             const id = nextInvokeId();
             return new Promise<GatewayResponse>((resolve) => {
@@ -494,19 +493,17 @@ export function createHandlers(ctx: HandlersContext) {
                   ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
                   : { text: String(result ?? ""), toolCalls: [] };
                 try {
-                  const assistantToolCalls = out.toolCalls?.map((tc, i) => ({
-                    id: (tc as { id?: string }).id ?? `tc-${i}`,
-                    name: tc.name,
-                    arguments: tc.arguments,
-                  }));
+                  const withUrls = saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir);
+                  const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
                   const toAppend = [
                     { role: "user" as const, content: message as string },
-                    { role: "assistant" as const, content: out.text, ...(assistantToolCalls?.length ? { toolCalls: assistantToolCalls } : {}) },
+                    { role: "assistant" as const, content: assistantContent },
                   ];
                   const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
                   updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
                 } catch (_) {}
-                resolve(ok(out));
+                const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
+                resolve(ok({ ...out, text: textForAgent }));
               });
               entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
             });
@@ -645,9 +642,8 @@ export function createHandlers(ctx: HandlersContext) {
         const initialMessages = stored.map((m) => ({
           role: m.role,
           content: m.content,
-          ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
-          ...(m.toolCallId && { toolCallId: m.toolCallId }),
-          ...(m.isError !== undefined && { isError: m.isError }),
+          ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
+          ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
         }));
         const n = getNodesFromConnections(connections);
         const slot = n.flatMap((no) => no.agents).find((a) => a.agentId === agentId);
@@ -670,14 +666,11 @@ export function createHandlers(ctx: HandlersContext) {
               ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
               : { text: String(result ?? ""), toolCalls: [] };
             try {
-              const assistantToolCalls = out.toolCalls?.map((tc, i) => ({
-                id: (tc as { id?: string }).id ?? `tc-${i}`,
-                name: tc.name,
-                arguments: tc.arguments,
-              }));
+              const withUrls = saveScreenshotsInContent(out.text, rkey, ctx.screenshotsDir);
+              const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
               const toAppend = [
                 { role: "user" as const, content: msg },
-                { role: "assistant" as const, content: out.text, ...(assistantToolCalls?.length && { toolCalls: assistantToolCalls }) },
+                { role: "assistant" as const, content: assistantContent },
               ];
               const newLeafId = appendTranscriptMessages(tpath, res.entry?.leafId ?? null, toAppend);
               updateSessionEntry(sessionStorePath, rkey, { leafId: newLeafId, updatedAt: Date.now() });
@@ -704,9 +697,8 @@ export function createHandlers(ctx: HandlersContext) {
         const initialMessages = stored.map((m) => ({
           role: m.role,
           content: m.content,
-          ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
-          ...(m.toolCallId && { toolCallId: m.toolCallId }),
-          ...(m.isError !== undefined && { isError: m.isError }),
+          ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
+          ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
         }));
         if (process.env.GATEWAY_DEBUG_MEMORY) {
           process.stderr.write(`[gateway] chat.send remote initialMessages=${initialMessages.length} leafId=${resolvedEntry?.leafId ?? "null"}\n`);
@@ -725,14 +717,11 @@ export function createHandlers(ctx: HandlersContext) {
               ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
               : { text: String(result ?? ""), toolCalls: [] };
             try {
-              const assistantToolCalls = out.toolCalls?.map((tc, i) => ({
-                id: (tc as { id?: string }).id ?? `tc-${i}`,
-                name: tc.name,
-                arguments: tc.arguments,
-              }));
+              const withUrls = saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir);
+              const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
               const toAppend = [
                 { role: "user" as const, content: message },
-                { role: "assistant" as const, content: out.text, ...(assistantToolCalls?.length && { toolCalls: assistantToolCalls }) },
+                { role: "assistant" as const, content: assistantContent },
               ];
               const newLeafId = appendTranscriptMessages(transcriptPath, resolvedEntry?.leafId ?? null, toAppend);
               updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
@@ -741,7 +730,8 @@ export function createHandlers(ctx: HandlersContext) {
               clearActiveRunByRunId(ctx.sessionQueue, id);
               onRunComplete(ctx.sessionQueue, resolvedKey, (merged) => runOneTurnRemote(resolvedKey, merged));
             }
-            resolve(ok(out));
+            const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
+            resolve(ok({ ...out, text: textForAgent }));
           });
           entry!.ws.send(JSON.stringify({
             event: "node.invoke.request",
@@ -864,6 +854,7 @@ export function createHandlers(ctx: HandlersContext) {
           connId: n.connId,
           agents: n.agents,
           ...(n.capabilities?.length ? { capabilities: n.capabilities } : {}),
+          ...(n.vncPort != null ? { vncPort: n.vncPort } : {}),
         })),
         connectors: connectors.map((c) => ({
           connectorId: c.connectorId,
@@ -903,7 +894,22 @@ export function createHandlers(ctx: HandlersContext) {
       const resolveFn = pendingInvokes.get(String(id));
       if (resolveFn) {
         pendingInvokes.delete(String(id));
-        resolveFn(params?.result ?? params);
+        let result = params?.result ?? params;
+        // browser_fetch 返回的 screenshotBase64 落盘为文件并改为 screenshotUrl，避免 Agent 把 base64 发给 LLM 超 token
+        if (result && typeof result === "object" && result !== null && "payload" in result) {
+          const payload = (result as { payload?: Record<string, unknown> }).payload;
+          if (payload?.screenshotBase64 && typeof payload.screenshotBase64 === "string") {
+            const url = saveBase64ToScreenshotFile(
+              payload.screenshotBase64,
+              "pending",
+              String(id) + ".png",
+              ctx.screenshotsDir,
+            );
+            const { screenshotBase64: _b, ...rest } = payload;
+            result = { ...result, payload: { ...rest, screenshotUrl: url } };
+          }
+        }
+        resolveFn(result);
       }
       return ok({ id, accepted: true });
     },

@@ -2,6 +2,7 @@
  * Gateway 运行时上下文：连接注册表、身份、待决 node.invoke、Connector 映射
  */
 
+import path from "node:path";
 import type { ConnectIdentity } from "@monou/gateway";
 import type { CronStore } from "@monou/cron";
 
@@ -42,6 +43,8 @@ export type GatewayContext = {
   sessionStorePath: string;
   /** 默认 session 的 transcript 路径（.gateway/sessions/transcripts/ 下），用于 resolveSession */
   mainTranscriptPath: string;
+  /** 截图落盘目录（.gateway/sessions/screenshots），用于 saveScreenshotsInContent 与 GET /api/screenshots */
+  screenshotsDir: string;
   /** 连接表：connId -> { ws, identity?, sessionKey? } */
   connections: Map<string, ConnectionEntry>;
   /** node.invoke 请求 id -> resolve(result) */
@@ -104,6 +107,7 @@ export function createGatewayContext(opts: {
     rootDir: opts.rootDir,
     sessionStorePath: opts.sessionStorePath,
     mainTranscriptPath: opts.mainTranscriptPath,
+    screenshotsDir: path.join(path.dirname(opts.sessionStorePath), "screenshots"),
     startedAt: Date.now(),
     connections: new Map(),
     pendingInvokes: new Map(),
@@ -149,6 +153,8 @@ export type NodeEntry = {
   connId: string;
   /** connect 时声明的能力，如 ["sandbox"]（Sandbox Node 方案 B） */
   capabilities?: string[];
+  /** connect 时 node 上报的 VNC 端口，供 Control UI 通过 /vnc/:port 代理查看（多节点各报各口） */
+  vncPort?: number;
 };
 
 export function getNodesFromConnections(connections: Map<string, ConnectionEntry>): NodeEntry[] {
@@ -159,6 +165,7 @@ export function getNodesFromConnections(connections: Map<string, ConnectionEntry
       agentIds: NodeAgentEntry[];
       nodeConnId?: string;
       capabilities?: string[];
+      vncPort?: number;
     }
   >();
 
@@ -167,16 +174,18 @@ export function getNodesFromConnections(connections: Map<string, ConnectionEntry
     const id = entry.identity;
     const deviceId = id?.deviceId ?? id?.agentId ?? connId;
     const caps = Array.isArray(id?.capabilities) ? (id.capabilities as string[]) : undefined;
+    const vncPort = typeof id?.vncPort === "number" && id.vncPort > 0 ? id.vncPort : undefined;
 
     if (id?.role === "node") {
       let slot = byDevice.get(deviceId);
       if (!slot) {
-        slot = { connIds: [], agentIds: [], nodeConnId: connId, capabilities: caps };
+        slot = { connIds: [], agentIds: [], nodeConnId: connId, capabilities: caps, vncPort };
         byDevice.set(deviceId, slot);
       }
       slot.connIds.push(connId);
       if (!slot.nodeConnId) slot.nodeConnId = connId;
       if (caps?.length) slot.capabilities = caps;
+      if (vncPort != null) slot.vncPort = vncPort;
     } else if (id?.role === "agent" && id?.agentId) {
       let slot = byDevice.get(deviceId);
       if (!slot) {
@@ -200,6 +209,7 @@ export function getNodesFromConnections(connections: Map<string, ConnectionEntry
       agents: slot.agentIds,
       connId,
       capabilities: slot.capabilities,
+      ...(slot.vncPort != null ? { vncPort: slot.vncPort } : {}),
     });
   }
   return list;

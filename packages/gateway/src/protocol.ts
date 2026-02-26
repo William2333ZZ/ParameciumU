@@ -40,6 +40,8 @@ export type ConnectIdentity = {
   /** 当 role 为 connector 时可选，用于 UI 展示（如从飞书获取的应用名或自定义名） */
   connectorDisplayName?: string;
   capabilities?: string[];
+  /** 当 role 为 node 且提供 VNC 时可选：noVNC 监听端口（Control UI 通过 /vnc/:port 代理到该端口，支持多节点） */
+  vncPort?: number;
 };
 
 /** 支持的方法名（与 OpenClaw 一致子集 + connector 映射） */

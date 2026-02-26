@@ -1,6 +1,7 @@
 /**
  * Web skill: web_fetch, web_search.
  * web_search uses SERPER_API_KEY or TAVILY_API_KEY (optional).
+ * For JS-rendered pages (SPA), use browser_skill's browser_fetch_js (requires Browser Node).
  */
 
 import type { AgentTool } from "@monou/agent-core";

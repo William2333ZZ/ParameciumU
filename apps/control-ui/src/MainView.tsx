@@ -1,45 +1,48 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { getReadKey, getStoredLastRead, setStoredLastRead } from "./chat-read-storage";
 import { ChatPanel } from "./panels/ChatPanel";
-import { TopologyPanel } from "./panels/TopologyPanel";
-import { CronPanel } from "./panels/CronPanel";
-import { SessionsPanel } from "./panels/SessionsPanel";
+import { ChatWelcome } from "./panels/ChatWelcome";
+import { ConversationListPanel } from "./panels/ConversationListPanel";
+import { ContactsPanel } from "./panels/ContactsPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
 
-export type TabId =
-  | "chat"
-  | "topology"
-  | "sessions"
-  | "cron"
-  | "settings";
+export type TabId = "chat" | "contacts" | "settings";
 
-export type OpenChatPayload = { agentId: string; sessionKey?: string };
+export type OpenChatPayload = { agentId: string; sessionKey?: string } | null;
 
 type Props = {
   onDisconnect: () => void;
 };
 
 const NAV: { id: TabId; label: string }[] = [
-  { id: "chat", label: "对话" },
-  { id: "topology", label: "拓扑" },
-  { id: "sessions", label: "会话" },
-  { id: "cron", label: "Cron" },
+  { id: "chat", label: "消息" },
+  { id: "contacts", label: "通讯录" },
   { id: "settings", label: "设置" },
 ];
 
 export function MainView({ onDisconnect }: Props) {
   const [tab, setTab] = useState<TabId>("chat");
-  const [openChatPayload, setOpenChatPayload] = useState<OpenChatPayload>({
-    agentId: ".u",
-    sessionKey: undefined,
-  });
+  const [selectedConversation, setSelectedConversation] = useState<OpenChatPayload>(null);
+  const [lastReadMap, setLastReadMap] = useState<Record<string, number>>(getStoredLastRead);
 
   const openChat = useCallback((agentId: string, sessionKey?: string) => {
-    setOpenChatPayload({ agentId, sessionKey });
+    setSelectedConversation({ agentId, sessionKey });
     setTab("chat");
   }, []);
 
+  useEffect(() => {
+    if (!selectedConversation) return;
+    const key = getReadKey(selectedConversation.agentId, selectedConversation.sessionKey);
+    const now = Date.now();
+    setLastReadMap((prev) => ({ ...prev, [key]: now }));
+    setStoredLastRead(key, now);
+  }, [selectedConversation?.agentId, selectedConversation?.sessionKey]);
+
+  const showMessageView = tab === "chat";
+  const hasConversation = selectedConversation != null;
+
   return (
-    <div className="main-layout sidebar-layout">
+    <div className="main-layout sidebar-layout slack-layout">
       <aside className="sidebar">
         <div className="sidebar-header">
           <span className="status-dot" title="已连接" />
@@ -67,29 +70,52 @@ export function MainView({ onDisconnect }: Props) {
           </button>
         </div>
       </aside>
-      <main className="main-content">
-        {/* 对话页常挂载，仅用 CSS 隐藏，避免切 tab 后会话/消息状态丢失（对齐 OpenClaw） */}
-        <div className={`main-content-panel ${tab === "chat" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "chat"}>
-          <ChatPanel
-            key={openChatPayload.agentId}
-            initialAgentId={openChatPayload.agentId}
-            initialSessionKey={openChatPayload.sessionKey}
-            onOpenSession={openChat}
-          />
-        </div>
-        <div className={`main-content-panel ${tab === "topology" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "topology"}>
-          <TopologyPanel isActive={tab === "topology"} onOpenChat={openChat} />
-        </div>
-        <div className={`main-content-panel ${tab === "sessions" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "sessions"}>
-          <SessionsPanel onOpenSession={openChat} />
-        </div>
-        <div className={`main-content-panel ${tab === "cron" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "cron"}>
-          <CronPanel />
-        </div>
-        <div className={`main-content-panel ${tab === "settings" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "settings"}>
-          <SettingsPanel onDisconnect={onDisconnect} />
-        </div>
-      </main>
+
+      {showMessageView ? (
+        <>
+          <div className="conversation-list-column">
+            <ConversationListPanel
+              selectedAgentId={selectedConversation?.agentId ?? null}
+              selectedSessionKey={selectedConversation?.sessionKey ?? null}
+              lastReadMap={lastReadMap}
+              onOpenChat={openChat}
+              onNewGroup={() => {
+                setSelectedConversation({ agentId: ".u", sessionKey: `agent:.u:group-${Date.now()}` });
+                setTab("chat");
+              }}
+            />
+          </div>
+          <main className="main-content main-content-chat">
+            {hasConversation ? (
+              <div className="main-content-panel main-content-panel--active chat-view-single">
+                <ChatPanel
+                  key={`${selectedConversation.agentId}-${selectedConversation.sessionKey ?? "main"}`}
+                  initialAgentId={selectedConversation.agentId}
+                  initialSessionKey={selectedConversation.sessionKey}
+                  onOpenSession={openChat}
+                />
+              </div>
+            ) : (
+              <div className="main-content-panel main-content-panel--active chat-view-single">
+                <ChatWelcome
+                  onNewGroup={() => {
+                    setSelectedConversation({ agentId: ".u", sessionKey: `agent:.u:group-${Date.now()}` });
+                  }}
+                />
+              </div>
+            )}
+          </main>
+        </>
+      ) : (
+        <main className="main-content main-content-full">
+          <div className={`main-content-panel ${tab === "contacts" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "contacts"}>
+            <ContactsPanel onOpenChat={openChat} />
+          </div>
+          <div className={`main-content-panel ${tab === "settings" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "settings"}>
+            <SettingsPanel onDisconnect={onDisconnect} />
+          </div>
+        </main>
+      )}
     </div>
   );
 }

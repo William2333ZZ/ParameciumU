@@ -17,5 +17,6 @@ Tools for reading web pages and searching the web.
 ## Guidelines
 
 - Prefer **web_fetch** when you have a specific URL.
+- For JS-rendered pages (SPA), use **browser_skill**'s **browser_fetch_js** (requires a Browser Node connected to Gateway).
 - Use **web_search** for open-ended queries or when you don't have a URL.
 - Respect rate limits; avoid excessive calls.
