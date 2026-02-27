@@ -1,5 +1,5 @@
 # 将 docs 用 VitePress 构建并部署到 GitHub Pages
-# 文档站地址：https://<你的用户名>.github.io/monoU/
+# 文档站地址：https://<你的用户名>.github.io/ParameciumU/
 name: Deploy Docs
 
 on:
