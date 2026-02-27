@@ -81,8 +81,8 @@ npx vitepress build docs
 2. 在 **Build and deployment** 里，**Source** 选 **GitHub Actions**。
 3. 保存后，下次触发 workflow（改 `docs/` 并推送到 `main`，或在 Actions 里手动跑一次 “Deploy Docs”）即可发布。
 
-**访问地址**：`https://<你的 GitHub 用户名>.github.io/monoU/`  
-（若仓库名不是 `monoU`，需把 `docs/.vitepress/config.mts` 里的 `base` 改成 `'/你的仓库名/'`。）
+**访问地址**：`https://<你的 GitHub 用户名>.github.io/ParameciumU/`  
+（若仓库名不同，需把 `docs/.vitepress/config.mts` 里的 `base` 改成 `'/你的仓库名/'`。）
 
 ### 4.2 Vercel / Netlify
 

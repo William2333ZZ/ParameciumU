@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "monoU 文档",
   description: "以「智能体标准化定义（基于文件夹）」为核心的主权智能体平台",
-  base: "/monoU/",
+  base: "/ParameciumU/",
   srcDir: ".",
   outDir: "./.vitepress/dist",
   ignoreDeadLinks: true,
