@@ -1,3 +1,11 @@
+---
+title: "产品定位与能力规划"
+summary: "monoU 的定位、与 OpenClaw 的关系、设计原则及能力规划路线图"
+read_when:
+  - 了解产品边界与路线图
+  - 做架构或能力规划时
+---
+
 # monoU 产品定位与能力规划
 
 本文档明确 monoU 的定位、与 OpenClaw 的关系、设计原则以及能力规划路线图。**monoU 不依赖 OpenClaw，也不以「与 OpenClaw 协议子集对齐」为目标**；monoU 是独立栈，在架构与能力上规划为超越 OpenClaw。
@@ -84,7 +92,7 @@
 | 能力 | OpenClaw 参考 | monoU 现状 | 规划 |
 |------|----------------|------------|------|
 | 灵魂 / 身份 | - | ✅ SOUL.md、IDENTITY.md | 保持；可选：多身份、角色切换 |
-| 技能 | 工具与 prompt 片段 | ✅ skills/<name>/SKILL.md、scripts | 保持；自进化（skill-creator） |
+| 技能 | 工具与 prompt 片段 | ✅ skills/&lt;name&gt;/SKILL.md、scripts | 保持；自进化（skill-creator） |
 | 记忆 / 知识库 | - | ✅ memory/、KNOWLEDGE.md、knowledge/ | 按需扩展检索与持久化 |
 | 定时任务定义 | cron jobs.json | ✅ cron/jobs.json、@monou/cron 类型 | 保持；deliver 已在类型与 Gateway 侧支持 |
 
@@ -128,4 +136,11 @@
 - **能力规划**：以「连接层、控制面、执行端、定义层」为维度，用 OpenClaw 作对照参考查漏补缺，确保 monoU 在各自维度上达到或超过同类能力。
 - **协议与实现**：完全为 monoU 产品服务，独立演进；文档与代码中避免「兼容 OpenClaw」的承诺或表述，改为「能力覆盖与超越」的规划描述。
 
-本文档与 [architecture.md](./architecture.md)、[gateway.md](./gateway.md)、[apps.md](./apps.md) 一起，构成 monoU 的定位与设计基线；后续新增能力或重构时，以本文档原则与能力域为据进行规划设计。
+本文档与 [architecture.md](./architecture.md)、[gateway.md](../runtime/gateway.md)、[apps.md](../runtime/apps.md) 一起，构成 monoU 的定位与设计基线；后续新增能力或重构时，以本文档原则与能力域为据进行规划设计。
+
+## 下一步
+
+- 四层抽象与代码划分：[架构](./architecture.md)
+- Gateway 协议与实现：[Gateway](../runtime/gateway.md)
+- 各应用运行方式：[apps](../runtime/apps.md)
+- 快速运行本地环境：[快速开始](../guide/getting-started.md)

@@ -1,3 +1,11 @@
+---
+title: "整体架构"
+summary: "monoU 四层抽象、packages 与 apps 划分、控制面与执行端职责边界"
+read_when:
+  - 首次了解项目结构
+  - 扩展或对接 Gateway/Agent 时
+---
+
 # monoU 整体架构
 
 本文档描述 monoU 的四层抽象、仓库与代码划分、以及控制面与执行端的职责边界。内容与当前 `packages/`、`apps/` 实现一致。产品定位与能力规划（含与 OpenClaw 的关系、不依赖不对齐的说明）见 [vision-and-roadmap.md](./vision-and-roadmap.md)。
@@ -120,7 +128,7 @@ Gateway **不做**：
 |------|-----------|------|
 | 灵魂 | SOUL.md | 原则、边界、气质；每轮注入 system prompt。 |
 | 身份 | IDENTITY.md | 名字、类型、可对外展示的档案。 |
-| 技能 | skills/<name>/ | 每技能：SKILL.md、scripts/、references/；可增删改。 |
+| 技能 | skills/&lt;name&gt;/ | 每技能：SKILL.md、scripts/、references/；可增删改。 |
 | 长期记忆 | memory/、MEMORY.md | 由 memory 类技能使用。 |
 | 知识库 | KNOWLEDGE.md、knowledge/ | 由 knowledge 技能使用；检索、自学习、按主题/知识点组织。 |
 | 定时 | cron/jobs.json | 由 cron 技能使用；Gateway 可读可写（RPC）。 |
@@ -129,4 +137,12 @@ Gateway **不做**：
 
 凡符合上述约定的目录，即「monoU 兼容智能体」；可被任意兼容运行时加载、备份、迁移、克隆。详见 [agent-directory.md](./agent-directory.md)。
 
-**Agent 运行机制**（目录加载、执行循环、Heartbeat）的代码级说明见 [agent-running.md](./agent-running.md)。
+**Agent 运行机制**（目录加载、执行循环、Heartbeat）的代码级说明见 [agent-running.md](../runtime/agent-running.md)。
+
+## 下一步
+
+- 产品定位与能力规划：[vision-and-roadmap](./vision-and-roadmap.md)
+- Gateway 协议与实现：[Gateway](../runtime/gateway.md)
+- Agent 目录约定：[Agent 目录](./agent-directory.md)
+- 快速开始：[guide/getting-started](../guide/getting-started.md)
+- 运行机制详解：[agent-running](../runtime/agent-running.md)

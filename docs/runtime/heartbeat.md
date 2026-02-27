@@ -1,3 +1,11 @@
+---
+title: "Heartbeat：在线证明与周期学习"
+summary: "Heartbeat 语义、Cron 中的实现、与 Gateway 的关系及学习/汇报统一"
+read_when:
+  - 配置或排查定时心跳、学习汇报时
+  - 理解 Cron 与 Heartbeat 关系时
+---
+
 # Heartbeat：在线证明与周期学习
 
 > 与 Agent 目录、执行过程一起的代码级整合说明见 [agent-running.md](./agent-running.md)。
@@ -78,4 +86,11 @@
 3. **默认语义**：默认 Heartbeat 即「学习/汇报」任务，默认启用，prompt 为学习导向，并支持 `HEARTBEAT.md` 覆盖。
 4. **在线证明**：WebSocket 连接 = 在线；Agent 每次执行完 Heartbeat 任务后会调用 Gateway 的 `agent.heartbeat`，Gateway 更新该连接的 `lastHeartbeatAt`；`agents.list` 返回中带 `lastHeartbeatAt`，便于 UI 显示「最近活跃」。
 
-以上与 [architecture.md](./architecture.md)、[gateway.md](./gateway.md)、[vision-and-roadmap.md](./vision-and-roadmap.md) 一致，并强化「不断学习」为默认心跳语义。
+以上与 [architecture.md](../architecture/architecture.md)、[gateway.md](./gateway.md)、[vision-and-roadmap.md](../architecture/vision-and-roadmap.md) 一致，并强化「不断学习」为默认心跳语义。
+
+## 下一步
+
+- Agent 运行机制与 Cron：[agent-running](./agent-running.md)
+- Agent 目录与 cron/jobs.json：[agent-directory](../architecture/agent-directory.md)
+- Gateway 协议：[gateway](./gateway.md)
+- 整体架构：[architecture](../architecture/architecture.md)

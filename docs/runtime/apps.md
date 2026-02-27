@@ -1,6 +1,14 @@
+---
+title: "应用说明 (apps)"
+summary: "gateway、agent、control-ui、TUI、feishu-app 等应用的职责、运行方式与环境变量"
+read_when:
+  - 启动或排查各应用时
+  - 配置端口、认证、数据目录时
+---
+
 # apps 应用说明
 
-本文档说明 `apps/` 下各可执行应用的职责、运行方式与环境变量。每个应用均可独立 build/run。monoU 协议与实现独立，不依赖 OpenClaw；扩展新 Connector 见 [connector-guide.md](./connector-guide.md)。
+本文档说明 `apps/` 下各可执行应用的职责、运行方式与环境变量。每个应用均可独立 build/run。monoU 协议与实现独立，不依赖 OpenClaw；扩展新 Connector 可参考 gateway 与 feishu-app 实现。
 
 ## 1. gateway（@monou/gateway-app）
 
@@ -129,7 +137,7 @@ GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.s
 |------|------|------|
 | GATEWAY_URL | Gateway WebSocket 地址 | 必填 |
 | SANDBOX_NODE_ID | 本节点 ID（node.list 可见） | sandbox-1 |
-| SANDBOX_WORKSPACE | 沙箱工作目录 | os.tmpdir()/monou-sandbox-<nodeId> |
+| SANDBOX_WORKSPACE | 沙箱工作目录 | os.tmpdir()/monou-sandbox-&lt;nodeId&gt; |
 | SANDBOX_USE_DOCKER | 1= Docker 执行，0= 本机子进程 | 1 |
 | SANDBOX_IMAGE | Docker 镜像 | debian:bookworm-slim |
 | GATEWAY_TOKEN / GATEWAY_PASSWORD | 可选认证 | - |
@@ -174,3 +182,11 @@ GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
 - `npx u-tui` → TUI（终端对话 + Cron）
 
 构建：根目录 `npm run build` 按顺序构建各 package 再构建 TUI（u-tui）、agent、sandbox-node、gateway。
+
+## 下一步
+
+- Gateway 协议：[gateway](./gateway.md)
+- 整体架构：[architecture](../architecture/architecture.md)
+- Agent 目录约定：[agent-directory](../architecture/agent-directory.md)
+- Control UI 设计：[control-ui/design](../control-ui/design.md)
+- 快速开始：[guide/getting-started](../guide/getting-started.md)

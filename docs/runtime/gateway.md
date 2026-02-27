@@ -1,3 +1,11 @@
+---
+title: "Gateway 协议与实现"
+summary: "Gateway 协议、服务端与客户端、会话与 RPC、安全与扩展要点"
+read_when:
+  - 对接或扩展 Gateway 时
+  - 理解会话、connect、RPC 时
+---
+
 # Gateway 协议与实现
 
 本文档说明 monoU Gateway 的协议、服务端与客户端分工、会话与 RPC、以及扩展要点。实现对应 `packages/gateway`（协议+客户端）与 `apps/gateway`（服务端）。协议为 monoU 自有设计，不承诺与任何外部系统（如 OpenClaw）兼容；演进以 monoU 需求为准。
@@ -49,7 +57,7 @@ apps/gateway — WebSocket 服务端：connect、路由、handlers、会话、cr
 
 ## 四、会话与对话
 
-- **会话存储**：元数据文件为 `.gateway/sessions/sessions.json`，单条会话记录在 `.gateway/sessions/transcripts/<sessionKey>.json`。所有会话都有 sessionKey；未指定时按时间新建（如 `agent:.u:s-<timestamp>-<random>`）。
+- **会话存储**：元数据文件为 `.gateway/sessions/sessions.json`，单条会话记录在 `.gateway/sessions/transcripts/&lt;sessionKey&gt;.json`。所有会话都有 sessionKey；未指定时按时间新建（如 `agent:.u:s-&lt;timestamp&gt;-&lt;random&gt;`）。
 - **sessions.list / sessions.preview**：返回 session store；可指定 sessionKey。
 - **sessions.patch**：更新 displayName、channel、sendPolicy、thinkingLevel、contextTokens、totalTokens、model 等。
 - **Session 过期**：由环境变量 SESSION_RESET_MODE（daily/idle/none）、SESSION_RESET_AT_HOUR、SESSION_IDLE_MINUTES 控制；过期后下次 agent 会新建 sessionId 并清空 transcript。
@@ -97,3 +105,10 @@ const jobs = await callGateway<{ jobs: unknown[] }>({
 - 新增 RPC：在 **packages/gateway** 的 `GATEWAY_METHODS` 增加方法名，在 **apps/gateway** 的 `createHandlers` 中实现；若需新依赖，在 context 或 HandlersContext 中注入。
 - 会话与 transcript 已由 sessionStorePath 与 resolveSession 管理；若需 sessionKey → agentId 持久化绑定，可在 context 中扩展。
 - Agent 执行：当前通过「已连接的 agent 进程」完成；若未来接入远程 Agent，可改为向某 connection 推送 agent.invoke 并收 agent.turn.result，或继续通过 node.invoke 将工具调用转到指定 Node。
+
+## 下一步
+
+- 整体架构：[architecture](../architecture/architecture.md)
+- 应用与环境变量：[apps](./apps.md)
+- Agent 目录与运行：[agent-directory](../architecture/agent-directory.md) · [agent-running](./agent-running.md)
+- 快速开始：[guide/getting-started](../guide/getting-started.md)

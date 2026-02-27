@@ -1,10 +1,19 @@
+---
+title: "快速开始"
+summary: "在本地构建并运行 monoU：Gateway、Agent、Control UI 或 TUI 的端到端步骤"
+read_when:
+  - 首次搭建本地环境
+  - 需要启动 Gateway / Agent / Control UI / TUI 任一组件
+  - 排查「连不上、对话没反应」时对照步骤
+---
+
 # 快速开始
 
 本文档帮助你在本地构建并运行 monoU：Gateway、Agent、Control UI 或 TUI。
 
 ## 前置要求
 
-- Node.js >= 20
+- **Node.js >= 20**
 - 若使用 LLM：配置 `OPENAI_API_KEY` 或 `AIHUBMIX_API_KEY`、`AIHUBMIX_BASE_URL`（可复制根目录 `env.example` 为 `.env` 后填写，由 dotenv 加载）
 
 ## 一、构建
@@ -108,4 +117,10 @@ GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 npm run sandbox-node
 | 启动沙箱 Node | `GATEWAY_URL=... npm run sandbox-node` |
 | Cron 常驻调度器 | `npm run cron:daemon` |
 
-更多环境变量与数据目录说明见 [apps.md](./apps.md) 与 [gateway.md](./gateway.md)。
+## 下一步
+
+- 整体架构与四层抽象：[架构](../architecture/architecture.md)
+- Gateway 协议与会话：[Gateway](../runtime/gateway.md)
+- 应用与环境变量：[apps](../runtime/apps.md)
+- Agent 目录约定与 SOUL/skills：[Agent 目录](../architecture/agent-directory.md)
+- 部署文档站：[部署说明](../deploy-docs-site.md)

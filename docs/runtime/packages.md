@@ -1,3 +1,11 @@
+---
+title: "模块说明 (packages)"
+summary: "packages 下各模块的职责、依赖、导出与用法"
+read_when:
+  - 开发或扩展 agent-core、gateway、skills 时
+  - 理解构建顺序与依赖时
+---
+
 # packages 模块说明
 
 本文档按依赖顺序说明 `packages/` 下 10 个模块的职责、导出与用法。构建顺序见根目录 `package.json` 的 `build` 脚本。
@@ -244,3 +252,10 @@ const jobs = await callGateway<{ jobs: unknown[] }>({
 ## 构建顺序（根目录 build 脚本）
 
 shared → agent-core → skills → cron → agent-sdk → agent-template → agent-from-dir → llm-provider → tui → gateway；随后构建 apps：TUI（u-tui）、agent、sandbox-node、gateway。
+
+## 下一步
+
+- 整体架构：[architecture](../architecture/architecture.md)
+- Agent 目录与技能加载：[agent-directory](../architecture/agent-directory.md)
+- 应用运行方式：[apps](./apps.md)
+- 编码技能设计：[code-skill-design](../reference/code-skill-design.md)

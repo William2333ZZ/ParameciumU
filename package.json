@@ -34,19 +34,22 @@
     "control-ui": "npm run dev --workspace=@monou/control-ui",
     "control-ui:build": "npm run build --workspace=@monou/control-ui",
     "tui": "node apps/tui/dist/index.js",
-    "tui:build": "npm run build --workspace=@monou/tui-app"
+    "tui:build": "npm run build --workspace=@monou/tui-app",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@monou/gateway": "file:packages/gateway",
-    "chalk": "^5.3.0",
     "@biomejs/biome": "^2.3.5",
+    "@monou/gateway": "file:packages/gateway",
     "@types/node": "^22.10.5",
+    "chalk": "^5.3.0",
     "concurrently": "^9.2.1",
     "dotenv": "^16.6.1",
     "husky": "^9.1.7",
     "tsx": "^4.20.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitepress": "1.6"
   },
   "engines": {
     "node": ">=20.0.0"

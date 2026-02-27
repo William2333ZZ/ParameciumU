@@ -13,6 +13,10 @@ coverage/
 .vscode/
 *.local
 
+# VitePress 文档站构建产物
+docs/.vitepress/dist
+docs/.vitepress/cache
+
 # 内嵌参考仓库，不纳入本库版本控制
 openclaw/
 pi-mono/
