@@ -78,8 +78,8 @@ npx vitepress build docs
 **你只需做一次**：
 
 1. 打开仓库 **Settings → Pages**。
-2. 在 **Build and deployment** 里，**Source** 选 **GitHub Actions**。
-3. 保存后，下次触发 workflow（改 `docs/` 并推送到 `main`，或在 Actions 里手动跑一次 “Deploy Docs”）即可发布。
+2. 在 **Build and deployment** 里，**Source** 选 **GitHub Actions**（不要选 Deploy from a branch）。
+3. 保存后，推送包含 `docs/` 的改动到 `main` 会自动部署；或在 **Actions** 页打开 “Deploy Docs”，点 **Run workflow** 手动触发一次。
 
 **访问地址**：`https://<你的 GitHub 用户名>.github.io/ParameciumU/`  
 （若仓库名不同，需把 `docs/.vitepress/config.mts` 里的 `base` 改成 `'/你的仓库名/'`。）
