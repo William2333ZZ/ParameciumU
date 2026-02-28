@@ -10,7 +10,7 @@ Agent Skills: load SKILL.md from directories and format for system prompt (Agent
 
 ## loadSkills options
 
-- **agentDir** — Agent root (in monoU, `.u` or any same-structure dir). When `includeDefaults` is true, loads from `agentDir/skills`. Callers should pass this explicitly in monoU.
+- **agentDir** — Agent root (in ParameciumU, `.first_paramecium` or any same-structure dir). When `includeDefaults` is true, loads from `agentDir/skills`. Callers should pass this explicitly.
 - **cwd** — Working directory for resolving relative paths; default `process.cwd()`.
 - **skillPaths** — Extra paths (files or directories) to load.
 - **includeDefaults** — If true (default), load from `agentDir/skills` and, when `cwd` is set, from a legacy config dir under cwd (optional). For monoU, passing `agentDir` is enough.
@@ -21,8 +21,8 @@ Agent Skills: load SKILL.md from directories and format for system prompt (Agent
 import { loadSkills, loadSkillsFromDir, formatSkillsForPrompt } from "@monou/skills";
 import path from "node:path";
 
-// monoU: load from .u/skills
-const result = loadSkills({ agentDir: path.join(process.cwd(), ".u") });
+// ParameciumU: load from .first_paramecium/skills
+const result = loadSkills({ agentDir: path.join(process.cwd(), ".first_paramecium") });
 const promptFragment = formatSkillsForPrompt(result.skills);
 // Append promptFragment to system prompt
 ```

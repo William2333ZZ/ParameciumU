@@ -1,6 +1,6 @@
 ---
 name: memory
-description: "工作区长期记忆的检索、读取与写入，持久化在 ./.u 下。工具：memory_search、memory_get、memory_store、memory_recall、memory_forget、memory_sync。短期/多轮由 state.messages 提供；跨会话用 memory_store 或 write 写入后用 memory_search 回忆。"
+description: "工作区长期记忆的检索、读取与写入，持久化在 ./.first_paramecium 下。工具：memory_search、memory_get、memory_store、memory_recall、memory_forget、memory_sync。短期/多轮由 state.messages 提供；跨会话用 memory_store 或 write 写入后用 memory_search 回忆。"
 ---
 
 # Memory
@@ -16,12 +16,12 @@ description: "工作区长期记忆的检索、读取与写入，持久化在 ./
 
 ## 工作区布局
 
-记忆文件位于**当前项目的 ./.u 目录下**（或环境变量 `MEMORY_WORKSPACE` 指定）：
+记忆文件位于**当前项目的 ./.first_paramecium 目录下**（或环境变量 `MEMORY_WORKSPACE` 指定）：
 
-- **.u/MEMORY.md**：长期记忆、决策与偏好；**## Store** 为 memory_store 追加区，**## Forgotten** 为 memory_forget 标记区。
-- **.u/memory/YYYY-MM-DD.md**：按日日志，仅追加。
+- **.first_paramecium/MEMORY.md**：长期记忆、决策与偏好；**## Store** 为 memory_store 追加区，**## Forgotten** 为 memory_forget 标记区。
+- **.first_paramecium/memory/YYYY-MM-DD.md**：按日日志，仅追加。
 
-可选 FTS5 索引：**.u/memory/index.sqlite**（或 `MEMORY_INDEX_PATH`），由 **memory_sync** 创建/重建；Node 22+ 时 memory_search 会优先使用索引。可选**向量混合检索**（`MEMORY_EMBEDDING_ENABLED=1` + `EMBEDDING_API_KEY`）与 **会话转录索引**（`MEMORY_INDEX_SESSION=1`）。
+可选 FTS5 索引：**.first_paramecium/memory/index.sqlite**（或 `MEMORY_INDEX_PATH`），由 **memory_sync** 创建/重建；Node 22+ 时 memory_search 会优先使用索引。可选**向量混合检索**（`MEMORY_EMBEDDING_ENABLED=1` + `EMBEDDING_API_KEY`）与 **会话转录索引**（`MEMORY_INDEX_SESSION=1`）。
 
 详见 [references/layout.md](references/layout.md)。
 
@@ -62,7 +62,7 @@ description: "工作区长期记忆的检索、读取与写入，持久化在 ./
 
 ### memory_sync
 
-重建 FTS5 索引（.u/memory/index.sqlite）。需 Node 22+（node:sqlite）；否则返回错误，memory_search 仍可用文件扫描回退。若 `MEMORY_EMBEDDING_ENABLED=1` 且配置了 `EMBEDDING_API_KEY`，会同时写入向量到索引以启用混合检索；若 `MEMORY_INDEX_SESSION=1`，会将 `MEMORY_SESSION_PATH` 指定的会话 JSON（如 Gateway 导出的 transcript 文件）纳入索引，路径为 session/transcript.md。
+重建 FTS5 索引（.first_paramecium/memory/index.sqlite）。需 Node 22+（node:sqlite）；否则返回错误，memory_search 仍可用文件扫描回退。若 `MEMORY_EMBEDDING_ENABLED=1` 且配置了 `EMBEDDING_API_KEY`，会同时写入向量到索引以启用混合检索；若 `MEMORY_INDEX_SESSION=1`，会将 `MEMORY_SESSION_PATH` 指定的会话 JSON（如 Gateway 导出的 transcript 文件）纳入索引，路径为 session/transcript.md。
 
 ## 压缩前记忆刷新
 
@@ -86,8 +86,8 @@ description: "工作区长期记忆的检索、读取与写入，持久化在 ./
 
 | 变量 | 说明 |
 |------|------|
-| `MEMORY_WORKSPACE` | 工作区根目录，默认 `./.u` |
-| `MEMORY_INDEX_PATH` | FTS5 索引文件路径，默认 `.u/memory/index.sqlite` |
+| `MEMORY_WORKSPACE` | 工作区根目录，默认 `./.first_paramecium` |
+| `MEMORY_INDEX_PATH` | FTS5 索引文件路径，默认 `.first_paramecium/memory/index.sqlite` |
 | `MEMORY_EXTRA_PATHS` | 逗号分隔的额外路径（相对工作区或绝对），纳入检索与 path 白名单 |
 | `MEMORY_EMBEDDING_ENABLED` | `1` 或 `true` 时在 memory_sync 时写入向量并启用混合检索 |
 | `EMBEDDING_API_KEY` | 嵌入 API 密钥（OpenAI 兼容）；未设时可用 `OPENAI_API_KEY` |

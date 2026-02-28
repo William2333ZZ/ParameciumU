@@ -1,12 +1,8 @@
 import type { AgentMessage, AgentState } from "../types.js";
-import { estimateMessagesTokens } from "./estimate.js";
 import { findCutPoint } from "./cut-point.js";
+import { estimateMessagesTokens } from "./estimate.js";
 import { generateSummary } from "./summarize.js";
-import {
-	DEFAULT_COMPACTION_SETTINGS,
-	type CompactionOptions,
-	type CompactionSettings,
-} from "./types.js";
+import { type CompactionOptions, type CompactionSettings, DEFAULT_COMPACTION_SETTINGS } from "./types.js";
 
 const COMPACTION_SUMMARY_PREFIX = "## Context summary (earlier conversation)\n\n";
 

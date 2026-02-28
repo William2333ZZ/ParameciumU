@@ -12,7 +12,9 @@ import { createAgent } from "../src/agent.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const validSkillDir = join(__dirname, "../../skills/test/fixtures/skills/valid-skill");
 
-function getSystemMessageText(state: { messages: { role: string; content: { type: string; text?: string }[] }[] }): string {
+function getSystemMessageText(state: {
+	messages: { role: string; content: { type: string; text?: string }[] }[];
+}): string {
 	const sys = state.messages.find((m) => m.role === "system");
 	if (!sys?.content?.length) return "";
 	return sys.content.map((c) => (c.type === "text" ? c.text : "")).join("");

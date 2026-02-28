@@ -8,7 +8,7 @@ read_when:
 
 # apps 应用说明
 
-本文档说明 `apps/` 下各可执行应用的职责、运行方式与环境变量。每个应用均可独立 build/run。monoU 协议与实现独立，不依赖 OpenClaw；扩展新 Connector 可参考 gateway 与 feishu-app 实现。
+本文档说明 `apps/` 下各可执行应用的职责、运行方式与环境变量。每个应用均可独立 build/run。ParameciumU 协议与实现独立，不依赖 OpenClaw；扩展新 Connector 可参考 gateway 与 feishu-app 实现。
 
 ## 1. gateway（@monou/gateway-app）
 
@@ -32,7 +32,7 @@ GATEWAY_PORT=18790 npm run gateway
 | GATEWAY_PORT | 监听端口 | 9347 |
 | GATEWAY_HOST | 监听地址 | 127.0.0.1 |
 | GATEWAY_DATA_DIR / GATEWAY_STATE_DIR | 数据目录（mappings、sessions） | ./.gateway |
-| CRON_STORE | cron 任务存储路径 | ./.u/cron/jobs.json |
+| CRON_STORE | cron 任务存储路径 | ./.first_paramecium/cron/jobs.json |
 | GATEWAY_TOKEN / GATEWAY_PASSWORD | 认证；任一非空即启用，connect 时必带 | - |
 | GATEWAY_TLS_CERT / GATEWAY_TLS_KEY | TLS 证书与私钥文件路径，启用 wss | - |
 | SESSION_RESET_MODE | daily \| idle \| none | none |
@@ -52,8 +52,8 @@ GATEWAY_PORT=18790 npm run gateway
 **运行**：
 
 ```bash
-# 终端 2（Gateway 已启动）
-GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u npm run agent
+# 终端 2（Gateway 已启动，须显式指定 AGENT_DIR、AGENT_ID）
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent
 
 # 多 agent 示例
 GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
@@ -65,11 +65,11 @@ GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run age
 |------|------|------|
 | GATEWAY_URL | Gateway WebSocket 地址 | 是 |
 | AGENT_ID | 注册到 Gateway 的 agentId | 是 |
-| AGENT_DIR / AGENT_ROOT_DIR | 与 .u 同构的 agent 目录 | 否，默认 cwd/.u |
+| AGENT_DIR / AGENT_ROOT_DIR | 与 agents/sidekick 同构的 agent 目录 | 是（无默认） |
 | DEVICE_ID | 设备标识，Gateway 按此聚合 Node | 否，默认 hostname 或 AGENT_ID |
 | GATEWAY_TOKEN / GATEWAY_PASSWORD | 与 Gateway 认证一致时填写 | 否 |
 
-**行为**：连接成功后自动确保 cron store 中存在 Heartbeat 任务（默认禁用）；可配置 HEARTBEAT_ACTIVE_HOURS_*、HEARTBEAT.md 等。Cron 到点由本进程内 runScheduler 的 onJobDue 执行 runTurn，可选 push 到 connector。
+**行为**：连接成功后自动确保 cron store 中存在 Heartbeat 任务（默认启用）；可配置 HEARTBEAT_ACTIVE_HOURS_*、HEARTBEAT.md 等。**Cron 调度器内嵌在本进程内**：到点由 runScheduler 的 onJobDue 执行 runTurn，可选 push 到 connector。无需也不应依赖单独运行 `npm run cron:daemon` 来执行定时任务；cron:daemon 为独立进程且不执行 agent turn。
 
 ---
 
@@ -96,7 +96,7 @@ cd apps/control-ui && npm run dev
 
 ## 4. TUI（@monou/u-tui）
 
-**职责**：L1 Connector（TUI）。终端内对话 + Cron 面板；使用 agent-from-dir 与 .u 持久化（与 `npm run u` 一致）。首屏为对话，/cron 进入定时任务，q 在 Cron 面板退出。
+**职责**：L1 Connector（TUI）。终端内对话 + Cron 面板；使用 agent-from-dir 与指定 AGENT_DIR 持久化；需先启动 Gateway 与 agent。首屏为对话，/cron 进入定时任务，q 在 Cron 面板退出。
 
 **运行**：
 
@@ -105,7 +105,7 @@ npm run build
 npx u-tui
 ```
 
-**功能**：Cron 面板（.u/cron/jobs.json，↑↓ 选择、Enter 菜单）；Chat 面板（连 Gateway、流式输出、会话由 Gateway 管理、/clear、/help、/cron、!cmd 等）。非 TTY 会打印用法并退出。
+**功能**：Cron 面板（.first_paramecium/cron/jobs.json，↑↓ 选择、Enter 菜单）；Chat 面板（连 Gateway、流式输出、会话由 Gateway 管理、/clear、/help、/cron、!cmd 等）。非 TTY 会打印用法并退出。
 
 **依赖**：@monou/agent-from-dir、@monou/cron、@monou/tui、@monou/agent-sdk、@monou/llm-provider、chalk、dotenv。LLM 使用 OPENAI_API_KEY 或 AIHUBMIX_*。
 
@@ -174,19 +174,18 @@ GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
 ## 脚本入口（根 package.json）
 
 - `npm run gateway` → 启动 apps/gateway
-- `npm run agent` → 启动 apps/agent
+- `npm run agent` → 启动 apps/agent（须显式指定 AGENT_DIR、AGENT_ID）
 - `npm run browser-node` → 启动 apps/browser-node（需先在该 app 下 build 并安装 webkit）
 - `npm run sandbox-node` → 启动 apps/sandbox-node
 - `npm run control-ui` → 开发 apps/control-ui（Vite）
-- `npm run u` → scripts/run-u.ts（本机 .u 对话，不接 Gateway）
 - `npx u-tui` → TUI（终端对话 + Cron）
 
 构建：根目录 `npm run build` 按顺序构建各 package 再构建 TUI（u-tui）、agent、sandbox-node、gateway。
 
 ## 下一步
 
-- Gateway 协议：[gateway](./gateway.md)
-- 整体架构：[architecture](../architecture/architecture.md)
-- Agent 目录约定：[agent-directory](../architecture/agent-directory.md)
+- Gateway 协议：[gateway](../gateway/protocol.md)
+- 整体架构：[architecture](../concepts/architecture.md)
+- Agent 目录约定：[agent-directory](../concepts/agent-directory.md)
 - Control UI 设计：[control-ui/design](../control-ui/design.md)
-- 快速开始：[guide/getting-started](../guide/getting-started.md)
+- 快速开始：[getting-started](../start/getting-started.md)

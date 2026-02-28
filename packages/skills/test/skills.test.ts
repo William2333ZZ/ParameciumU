@@ -3,8 +3,7 @@
  * Tests loadSkillsFromDir and formatSkillsForPrompt.
  */
 
-import { dirname } from "node:path";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { formatSkillsForPrompt, loadSkillsFromDir } from "../src/index.js";
@@ -48,9 +47,7 @@ describe("skills", () => {
 			});
 
 			expect(skills).toHaveLength(0);
-			expect(diagnostics.some((d: ResourceDiagnostic) => d.message.includes("description is required"))).toBe(
-				true,
-			);
+			expect(diagnostics.some((d: ResourceDiagnostic) => d.message.includes("description is required"))).toBe(true);
 		});
 
 		it("should parse disable-model-invocation frontmatter field", () => {

@@ -20,7 +20,6 @@
     "release:minor": "node scripts/release.mjs minor",
     "release:major": "node scripts/release.mjs major",
     "prepare": "husky",
-    "u": "npx tsx scripts/run-u.ts",
     "cron:daemon": "node node_modules/@monou/cron/dist/cli.js",
     "gateway": "node apps/gateway/dist/index.js",
     "agent": "node apps/agent/dist/index.js",

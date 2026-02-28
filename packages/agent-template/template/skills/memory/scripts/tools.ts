@@ -1,7 +1,7 @@
 /**
  * Memory skill：memory_search、memory_get、memory_store、memory_recall、memory_forget、memory_sync。
- * 工作区默认 ./.u（MEMORY.md、memory/*.md），或 MEMORY_WORKSPACE。
- * 可选 FTS5 索引（Node 22+ node:sqlite）存于 .u/memory/index.sqlite；可选向量混合检索（EMBEDDING_API_KEY）；
+ * 工作区默认 ./.first_paramecium（MEMORY.md、memory/*.md），或 MEMORY_WORKSPACE。
+ * 可选 FTS5 索引（Node 22+ node:sqlite）存于 .first_paramecium/memory/index.sqlite；可选向量混合检索（EMBEDDING_API_KEY）；
  * 可选会话转录索引（MEMORY_INDEX_SESSION=1，MEMORY_SESSION_PATH）。
  */
 
@@ -18,7 +18,7 @@ const DEFAULT_EMBEDDING_BASE = "https://api.openai.com/v1";
 function getWorkspaceDir(): string {
 	const env = process.env.MEMORY_WORKSPACE?.trim();
 	if (env) return resolve(env);
-	return join(process.cwd(), ".u");
+	return join(process.cwd(), ".first_paramecium");
 }
 
 function getIndexPath(workspaceDir: string): string {
@@ -472,7 +472,7 @@ export const tools: AgentTool[] = [
 	},
 	{
 		name: "memory_sync",
-		description: "重建 FTS5 全文索引（.u/memory/index.sqlite）。在大量修改 MEMORY.md 或 memory/*.md 后调用可提升 memory_search 速度与准确性。需 Node 22+。",
+		description: "重建 FTS5 全文索引（.first_paramecium/memory/index.sqlite）。在大量修改 MEMORY.md 或 memory/*.md 后调用可提升 memory_search 速度与准确性。需 Node 22+。",
 		parameters: { type: "object", properties: {} },
 	},
 ];

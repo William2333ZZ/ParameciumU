@@ -3,21 +3,16 @@
  * with mock streamFn. Aligned with pi-agent agent-loop.test.ts semantics.
  */
 
-import { describe, expect, it } from "vitest";
 import type { AgentMessage, AgentState, ToolCall } from "@monou/agent-core";
 import {
+	type AgentLoopConfig,
 	appendUserMessage,
 	createInitialState,
 	runOneTurn,
-	type AgentLoopConfig,
 	type StreamFn,
 } from "@monou/agent-core";
-import {
-	createAgent,
-	runAgentTurn,
-	runAgentTurnWithToolsStreaming,
-	type ToolExecutor,
-} from "../src/agent.js";
+import { describe, expect, it } from "vitest";
+import { createAgent, runAgentTurn, runAgentTurnWithToolsStreaming, type ToolExecutor } from "../src/agent.js";
 
 function textMsg(role: "user" | "assistant" | "system", text: string): AgentMessage {
 	return {
@@ -29,11 +24,7 @@ function textMsg(role: "user" | "assistant" | "system", text: string): AgentMess
 }
 
 function createMockStreamFn(
-	behaviors: Array<
-		| { type: "text"; text: string }
-		| { type: "tool_call"; call: ToolCall }
-		| { type: "done" }
-	>[],
+	behaviors: Array<{ type: "text"; text: string } | { type: "tool_call"; call: ToolCall } | { type: "done" }>[],
 ): StreamFn {
 	let callIndex = 0;
 	return async function* (messages: AgentMessage[], _tools: AgentLoopConfig["tools"], _signal?: AbortSignal) {

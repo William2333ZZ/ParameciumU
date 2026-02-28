@@ -14,9 +14,11 @@ function isBrowserNode(n: NodeItem): boolean {
 
 type InvokeResult = { ok?: boolean; payload?: { screenshotBase64?: string; screenshotUrl?: string; url?: string }; error?: { message?: string } };
 
-export function BrowserPanel() {
+type Props = { initialNodeId?: string };
+
+export function BrowserPanel({ initialNodeId }: Props) {
   const [nodes, setNodes] = useState<NodeItem[]>([]);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialNodeId ?? null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [screenshot, setScreenshot] = useState<{ base64?: string; url?: string } | null>(null);
@@ -42,8 +44,11 @@ export function BrowserPanel() {
         if (browserNodes.length === 0) {
           setSelectedNodeId(null);
         } else {
+          const preferred = initialNodeId && browserNodes.some((n) => n.nodeId === initialNodeId)
+            ? initialNodeId
+            : null;
           setSelectedNodeId((prev) =>
-            prev && browserNodes.some((n) => n.nodeId === prev) ? prev : browserNodes[0].nodeId
+            preferred ?? (prev && browserNodes.some((n) => n.nodeId === prev) ? prev : browserNodes[0].nodeId)
           );
         }
       })
@@ -60,7 +65,11 @@ export function BrowserPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialNodeId]);
+
+  useEffect(() => {
+    if (initialNodeId != null) setSelectedNodeId(initialNodeId);
+  }, [initialNodeId]);
 
   const fetchScreenshot = async () => {
     if (!selectedNodeId) return;

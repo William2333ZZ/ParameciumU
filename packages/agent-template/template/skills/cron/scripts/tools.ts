@@ -142,7 +142,7 @@ export const tools: AgentTool[] = [
 	{
 		name: "cron_start_scheduler",
 		description:
-			"启动常驻定时调度器（后台进程）。启动后会按 .u/cron/jobs.json 中的任务到点自动更新状态；进程会持续运行直到被用户终止。用户说「启动定时器」「开定时调度」时可调用。",
+			"启动常驻定时调度器（后台进程）。启动后会按 .first_paramecium/cron/jobs.json 中的任务到点自动更新状态；进程会持续运行直到被用户终止。用户说「启动定时器」「开定时调度」时可调用。",
 		parameters: {
 			type: "object",
 			properties: {},
@@ -256,7 +256,7 @@ export async function executeTool(
 				return {
 					content: JSON.stringify({
 						ok: true,
-						message: "常驻定时调度器已在后台启动，将按 .u/cron/jobs.json 中的任务到点执行。关闭终端或结束进程可停止调度器。",
+						message: "常驻定时调度器已在后台启动，将按 .first_paramecium/cron/jobs.json 中的任务到点执行。关闭终端或结束进程可停止调度器。",
 					}),
 				};
 			} catch (e) {

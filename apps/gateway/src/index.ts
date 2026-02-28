@@ -19,27 +19,28 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { CronStore, getDefaultStorePath } from "@monou/cron";
-import { DEFAULT_LOCAL_AGENT_ID } from "./context.js";
-import { createGatewayContext } from "./context.js";
-import { createHandlers } from "./handlers.js";
-import { createGatewayWsServer, broadcastEvent, pushToConnector, startHeartbeatTimeoutCheck } from "./server.js";
 import { resolveAuthConfig } from "./auth.js";
-import { resolveTlsConfig, createHttpsServer } from "./tls.js";
-import { resolveGatewayDataDir, ensureGatewayDataDir, MAPPINGS_FILE } from "./paths.js";
-import { loadConnectorMappingsSync, saveConnectorMappings } from "./mappings-store.js";
-import { resolveSessionStorePath, ensureSessionStoreReady, getDefaultTranscriptPath, clearSessionStoreAndTranscripts } from "./session-store.js";
-import { createSessionQueueState } from "./queue.js";
+import { createGatewayContext, DEFAULT_LOCAL_AGENT_ID } from "./context.js";
+import { createHandlers } from "./handlers.js";
 import { discoverHooks, emitHook } from "./hooks.js";
-import { resolveScreenshotPath, getLatestPendingScreenshotPath } from "./screenshots.js";
+import { loadConnectorMappingsSync, saveConnectorMappings } from "./mappings-store.js";
+import { ensureGatewayDataDir, MAPPINGS_FILE, resolveGatewayDataDir } from "./paths.js";
+import { createSessionQueueState } from "./queue.js";
+import { getLatestPendingScreenshotPath, resolveScreenshotPath } from "./screenshots.js";
+import { broadcastEvent, createGatewayWsServer, pushToConnector, startHeartbeatTimeoutCheck } from "./server.js";
+import {
+	clearSessionStoreAndTranscripts,
+	ensureSessionStoreReady,
+	getDefaultTranscriptPath,
+	resolveSessionStorePath,
+} from "./session-store.js";
+import { createHttpsServer, resolveTlsConfig } from "./tls.js";
 
 const PORT =
-  Number(
-    process.env.GATEWAY_PORT ??
-      process.argv.find((a) => a.startsWith("--port="))?.split("=")[1],
-  ) || 9347;
+	Number(process.env.GATEWAY_PORT ?? process.argv.find((a) => a.startsWith("--port="))?.split("=")[1]) || 9347;
 const HOST = process.env.GATEWAY_HOST ?? "127.0.0.1";
 /** 本机默认 agent 的工作区根目录，其下 .u 为配置与对话（与 DEFAULT_LOCAL_AGENT_ID 对应）；启动 Gateway 时的 cwd */
 const ROOT_DIR = process.cwd();
@@ -57,23 +58,23 @@ clearSessionStoreAndTranscripts(sessionStorePath);
 ensureSessionStoreReady(sessionStorePath);
 
 const ctx = createGatewayContext({
-  cronStore: new CronStore(storePath),
-  rootDir: ROOT_DIR,
-  sessionStorePath,
-  mainTranscriptPath: defaultTranscriptPath,
-  initialConnectorMappings: initialMappings,
+	cronStore: new CronStore(storePath),
+	rootDir: ROOT_DIR,
+	sessionStorePath,
+	mainTranscriptPath: defaultTranscriptPath,
+	initialConnectorMappings: initialMappings,
 });
 ctx.persistConnectorMappings = async () => {
-  await saveConnectorMappings(GATEWAY_DATA_DIR, MAPPINGS_FILE, ctx.connectorMappings);
+	await saveConnectorMappings(GATEWAY_DATA_DIR, MAPPINGS_FILE, ctx.connectorMappings);
 };
 ctx.sessionQueue = createSessionQueueState();
 const heartbeatTimeoutMs = Number(process.env.GATEWAY_AGENT_HEARTBEAT_TIMEOUT_MS) || 0;
 if (heartbeatTimeoutMs > 0) ctx.heartbeatTimeoutMs = heartbeatTimeoutMs;
 
 const hooks = discoverHooks({
-  workspaceHooksDir: path.join(ROOT_DIR, ".u", "hooks"),
-  managedHooksDir: path.join(GATEWAY_DATA_DIR, "hooks"),
-  bundledHooksDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "hooks"),
+	workspaceHooksDir: path.join(ROOT_DIR, ".u", "hooks"),
+	managedHooksDir: path.join(GATEWAY_DATA_DIR, "hooks"),
+	bundledHooksDir: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "hooks"),
 });
 
 const handlers = createHandlers({ ...ctx });
@@ -85,114 +86,112 @@ const tlsConfig = resolveTlsConfig();
 
 /** 处理 HTTP(S) 请求：GET /api/screenshots/:sessionKey/:id 返回截图文件，其余 404 */
 function createScreenshotRequestHandler(
-  screenshotsDir: string,
+	screenshotsDir: string,
 ): (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void {
-  const prefix = "/api/screenshots/";
-  return (req, res) => {
-    const pathname = req.url?.split("?")[0] ?? "";
-    if (req.method === "GET" && pathname.startsWith(prefix)) {
-      const rest = pathname.slice(prefix.length);
-      const idx = rest.indexOf("/");
-      if (idx === -1) {
-        res.statusCode = 404;
-        res.end();
-        return;
-      }
-      const sessionKey = decodeURIComponent(rest.slice(0, idx));
-      const id = rest.slice(idx + 1);
-      let filePath: string | null;
-      if (sessionKey === "pending" && id === "latest") {
-        filePath = getLatestPendingScreenshotPath(screenshotsDir);
-      } else {
-        filePath = resolveScreenshotPath(screenshotsDir, sessionKey, id);
-      }
-      if (!filePath) {
-        res.statusCode = 404;
-        res.end();
-        return;
-      }
-      const ext = path.extname(filePath).toLowerCase();
-      res.setHeader("Content-Type", ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png");
-      fs.createReadStream(filePath).pipe(res);
-      return;
-    }
-    res.statusCode = 404;
-    res.end();
-  };
+	const prefix = "/api/screenshots/";
+	return (req, res) => {
+		const pathname = req.url?.split("?")[0] ?? "";
+		if (req.method === "GET" && pathname.startsWith(prefix)) {
+			const rest = pathname.slice(prefix.length);
+			const idx = rest.indexOf("/");
+			if (idx === -1) {
+				res.statusCode = 404;
+				res.end();
+				return;
+			}
+			const sessionKey = decodeURIComponent(rest.slice(0, idx));
+			const id = rest.slice(idx + 1);
+			let filePath: string | null;
+			if (sessionKey === "pending" && id === "latest") {
+				filePath = getLatestPendingScreenshotPath(screenshotsDir);
+			} else {
+				filePath = resolveScreenshotPath(screenshotsDir, sessionKey, id);
+			}
+			if (!filePath) {
+				res.statusCode = 404;
+				res.end();
+				return;
+			}
+			const ext = path.extname(filePath).toLowerCase();
+			res.setHeader("Content-Type", ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png");
+			fs.createReadStream(filePath).pipe(res);
+			return;
+		}
+		res.statusCode = 404;
+		res.end();
+	};
 }
 
 function logListen(port: number, host: string): void {
-  const scheme = tlsConfig ? "wss" : "ws";
-  const hostname = os.hostname();
-  console.log(`monoU Gateway ${scheme}://${host}:${port} (hostname: ${hostname})`);
-  console.log(`  data dir: ${GATEWAY_DATA_DIR}`);
-  console.log(`  cron store: ${storePath}`);
-  if (auth && (auth.token != null || auth.password != null))
-    console.log("  auth: token/password required (send connect first)");
-  if (tlsConfig) console.log("  TLS: enabled");
-  console.log("  agent: forward only (run 'npm run agent' to connect an agent)");
-  if (ctx.heartbeatTimeoutMs && ctx.heartbeatTimeoutMs > 0)
-    console.log(`  agent heartbeat timeout: ${ctx.heartbeatTimeoutMs}ms (no heartbeat → disconnect)`);
-  console.log(
-    "  methods: connect, health, status, cron.*, agents.list, sessions.*, agent, agent.wait, chat.history, chat.send, chat.abort, skills.status, node.*, connector.mapping.*, connector.message.inbound, connector.message.push",
-  );
+	const scheme = tlsConfig ? "wss" : "ws";
+	const hostname = os.hostname();
+	console.log(`monoU Gateway ${scheme}://${host}:${port} (hostname: ${hostname})`);
+	console.log(`  data dir: ${GATEWAY_DATA_DIR}`);
+	console.log(`  cron store: ${storePath}`);
+	if (auth && (auth.token != null || auth.password != null))
+		console.log("  auth: token/password required (send connect first)");
+	if (tlsConfig) console.log("  TLS: enabled");
+	console.log("  agent: forward only (run 'npm run agent' to connect an agent)");
+	if (ctx.heartbeatTimeoutMs && ctx.heartbeatTimeoutMs > 0)
+		console.log(`  agent heartbeat timeout: ${ctx.heartbeatTimeoutMs}ms (no heartbeat → disconnect)`);
+	console.log(
+		"  methods: connect, health, status, cron.*, agents.list, sessions.*, agent, agent.wait, chat.history, chat.send, chat.abort, skills.status, node.*, connector.mapping.*, connector.message.inbound, connector.message.push",
+	);
 }
 
 let wss: import("ws").WebSocketServer;
 let httpOrHttpsServer: import("node:http").Server | import("node:https").Server | undefined;
 
 if (tlsConfig) {
-  httpOrHttpsServer = createHttpsServer(tlsConfig, createScreenshotRequestHandler(ctx.screenshotsDir));
-  wss = createGatewayWsServer({
-    context: ctx,
-    handlers,
-    auth,
-    server: httpOrHttpsServer,
-  });
-  ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
-  ctx.pushToConnector = (connectorId, event, payload) =>
-    pushToConnector(ctx, connectorId, event, payload);
-  startHeartbeatTimeoutCheck(ctx);
-  httpOrHttpsServer.listen(PORT, HOST, async () => {
-    logListen(PORT, HOST);
-    await emitHook(
-      { type: "gateway", action: "startup", context: { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR } },
-      hooks,
-      { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR },
-    );
-  });
+	httpOrHttpsServer = createHttpsServer(tlsConfig, createScreenshotRequestHandler(ctx.screenshotsDir));
+	wss = createGatewayWsServer({
+		context: ctx,
+		handlers,
+		auth,
+		server: httpOrHttpsServer,
+	});
+	ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
+	ctx.pushToConnector = (connectorId, event, payload) => pushToConnector(ctx, connectorId, event, payload);
+	startHeartbeatTimeoutCheck(ctx);
+	httpOrHttpsServer.listen(PORT, HOST, async () => {
+		logListen(PORT, HOST);
+		await emitHook(
+			{ type: "gateway", action: "startup", context: { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR } },
+			hooks,
+			{ rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR },
+		);
+	});
 } else {
-  httpOrHttpsServer = http.createServer(createScreenshotRequestHandler(ctx.screenshotsDir));
-  wss = createGatewayWsServer({
-    context: ctx,
-    handlers,
-    auth,
-    server: httpOrHttpsServer,
-  });
-  ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
-  ctx.pushToConnector = (connectorId, event, payload) =>
-    pushToConnector(ctx, connectorId, event, payload);
-  startHeartbeatTimeoutCheck(ctx);
-  httpOrHttpsServer.listen(PORT, HOST, async () => {
-    logListen(PORT, HOST);
-    await emitHook(
-      { type: "gateway", action: "startup", context: { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR } },
-      hooks,
-      { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR },
-    );
-  });
+	httpOrHttpsServer = http.createServer(createScreenshotRequestHandler(ctx.screenshotsDir));
+	wss = createGatewayWsServer({
+		context: ctx,
+		handlers,
+		auth,
+		server: httpOrHttpsServer,
+	});
+	ctx.broadcast = (event: string, payload: unknown) => broadcastEvent(wss, { event, payload });
+	ctx.pushToConnector = (connectorId, event, payload) => pushToConnector(ctx, connectorId, event, payload);
+	startHeartbeatTimeoutCheck(ctx);
+	httpOrHttpsServer.listen(PORT, HOST, async () => {
+		logListen(PORT, HOST);
+		await emitHook(
+			{ type: "gateway", action: "startup", context: { rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR } },
+			hooks,
+			{ rootDir: ROOT_DIR, gatewayDataDir: GATEWAY_DATA_DIR },
+		);
+	});
 }
 
 let shuttingDown = false;
 function shutdown(signal: string): void {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  console.log(`\n${signal}, closing server...`);
-  if (httpOrHttpsServer) {
-    httpOrHttpsServer.close(() => process.exit(0));
-  } else {
-    wss.close(() => process.exit(0));
-  }
+	if (shuttingDown) return;
+	shuttingDown = true;
+	console.log(`\n${signal}, closing server...`);
+	if (httpOrHttpsServer) {
+		httpOrHttpsServer.close(() => process.exit(0));
+	} else {
+		wss.close(() => process.exit(0));
+	}
 }
 
 process.on("SIGINT", () => shutdown("SIGINT"));

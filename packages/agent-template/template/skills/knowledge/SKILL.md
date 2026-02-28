@@ -19,12 +19,12 @@ description: "工作区知识库的检索、自学习（topic/知识点 + 从 UR
 
 ## 工作区布局
 
-知识库文件位于**当前项目的 ./.u 目录下**（或环境变量 `KNOWLEDGE_WORKSPACE` 指定）：
+知识库文件位于**当前项目的 ./.first_paramecium 目录下**（或环境变量 `KNOWLEDGE_WORKSPACE` 指定）：
 
-- **.u/KNOWLEDGE.md**：可选，总览或单文件知识库；**## Add** 为无 topic 时的追加区。
-- **.u/knowledge/**：按**主题**组织。可为单文件（如 `knowledge/faq.md`）或**主题目录**（如 `knowledge/股票/`），其下为**知识点**：`knowledge/股票/K线.md`、`knowledge/高中数学/函数.md` 等。
+- **.first_paramecium/KNOWLEDGE.md**：可选，总览或单文件知识库；**## Add** 为无 topic 时的追加区。
+- **.first_paramecium/knowledge/**：按**主题**组织。可为单文件（如 `knowledge/faq.md`）或**主题目录**（如 `knowledge/股票/`），其下为**知识点**：`knowledge/股票/K线.md`、`knowledge/高中数学/函数.md` 等。
 
-可选 FTS5 索引：**.u/knowledge/index.sqlite**（或 `KNOWLEDGE_INDEX_PATH`），由 **knowledge_sync** 创建/重建；Node 22+ 时 knowledge_search 会优先使用索引。可选**向量混合检索**（`KNOWLEDGE_EMBEDDING_ENABLED=1` + `EMBEDDING_API_KEY`）。
+可选 FTS5 索引：**.first_paramecium/knowledge/index.sqlite**（或 `KNOWLEDGE_INDEX_PATH`），由 **knowledge_sync** 创建/重建；Node 22+ 时 knowledge_search 会优先使用索引。可选**向量混合检索**（`KNOWLEDGE_EMBEDDING_ENABLED=1` + `EMBEDDING_API_KEY`）。
 
 详见 [references/layout.md](references/layout.md)。
 
@@ -49,7 +49,7 @@ description: "工作区知识库的检索、自学习（topic/知识点 + 从 UR
 
 ### knowledge_sync
 
-重建 FTS5 索引（.u/knowledge/index.sqlite）。需 Node 22+（node:sqlite）；否则返回错误，knowledge_search 仍可用文件扫描回退。若 `KNOWLEDGE_EMBEDDING_ENABLED=1` 且配置了 `EMBEDDING_API_KEY`，会同时写入向量以启用混合检索。
+重建 FTS5 索引（.first_paramecium/knowledge/index.sqlite）。需 Node 22+（node:sqlite）；否则返回错误，knowledge_search 仍可用文件扫描回退。若 `KNOWLEDGE_EMBEDDING_ENABLED=1` 且配置了 `EMBEDDING_API_KEY`，会同时写入向量以启用混合检索。
 
 ### knowledge_add
 
@@ -88,7 +88,7 @@ description: "工作区知识库的检索、自学习（topic/知识点 + 从 UR
 
 ### knowledge_skill_create
 
-将某一主题的**知识转化为 Skill**。创建 `.u/skills/<topic>_knowledge/`（SKILL.md + topic.json），之后 run 会自动注册 **&lt;topic&gt;_knowledge_search**（如 stock_knowledge_search），仅在该主题知识库中检索。用于「把股票知识转成 skill」。
+将某一主题的**知识转化为 Skill**。创建 `.first_paramecium/skills/<topic>_knowledge/`（SKILL.md + topic.json），之后 run 会自动注册 **&lt;topic&gt;_knowledge_search**（如 stock_knowledge_search），仅在该主题知识库中检索。用于「把股票知识转成 skill」。
 
 - **topic**（必填）：主题名，如 stock、faq，将生成 &lt;topic&gt;_knowledge 目录。
 - **description**（可选）：Skill 描述，如「股票、行情、K 线、基本面」。
@@ -117,8 +117,8 @@ description: "工作区知识库的检索、自学习（topic/知识点 + 从 UR
 
 | 变量 | 说明 |
 |------|------|
-| `KNOWLEDGE_WORKSPACE` | 工作区根目录，默认 `./.u` |
-| `KNOWLEDGE_INDEX_PATH` | FTS5 索引文件路径，默认 `.u/knowledge/index.sqlite` |
+| `KNOWLEDGE_WORKSPACE` | 工作区根目录，默认 `./.first_paramecium` |
+| `KNOWLEDGE_INDEX_PATH` | FTS5 索引文件路径，默认 `.first_paramecium/knowledge/index.sqlite` |
 | `KNOWLEDGE_EXTRA_PATHS` | 逗号分隔的额外路径（相对工作区或绝对），纳入检索与 path 白名单 |
 | `KNOWLEDGE_EMBEDDING_ENABLED` | `1` 或 `true` 时在 knowledge_sync 时写入向量并启用混合检索 |
 | `EMBEDDING_API_KEY` | 嵌入 API 密钥（与 memory 共用）；未设时可用 `OPENAI_API_KEY` |

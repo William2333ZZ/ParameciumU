@@ -8,25 +8,19 @@
  * 若使用 TypeScript（tools.ts），需先编译为 tools.js，或由 runner 直接 import 后传入 createAgent。
  */
 
-import type { AgentTool } from "@monou/agent-core";
-import { pathToFileURL } from "node:url";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import type { AgentTool } from "@monou/agent-core";
 
 export interface SkillToolsModule {
 	tools: AgentTool[];
-	executeTool?: (
-		name: string,
-		args: Record<string, unknown>,
-	) => Promise<{ content: string; isError?: boolean }>;
+	executeTool?: (name: string, args: Record<string, unknown>) => Promise<{ content: string; isError?: boolean }>;
 }
 
 export interface LoadSkillToolsResult {
 	tools: AgentTool[];
 	/** 合并后的执行器：按 name 分发到各 skill 的 executeTool */
-	executeTool?: (
-		name: string,
-		args: Record<string, unknown>,
-	) => Promise<{ content: string; isError?: boolean }>;
+	executeTool?: (name: string, args: Record<string, unknown>) => Promise<{ content: string; isError?: boolean }>;
 }
 
 /**
@@ -75,10 +69,7 @@ export async function loadToolsFromSkillDirs(skillDirs: string[]): Promise<LoadS
 	const executeTool =
 		executors.length === 0
 			? undefined
-			: async (
-					name: string,
-					args: Record<string, unknown>,
-				): Promise<{ content: string; isError?: boolean }> => {
+			: async (name: string, args: Record<string, unknown>): Promise<{ content: string; isError?: boolean }> => {
 					for (const exec of executors) {
 						if (typeof exec !== "function") continue;
 						try {

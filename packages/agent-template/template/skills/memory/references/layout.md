@@ -1,6 +1,6 @@
 # 记忆工作区布局
 
-记忆的唯一天然来源是工作区下的 Markdown 文件。路径由运行环境决定：**默认当前项目的 `./.u` 目录**（或环境变量 `MEMORY_WORKSPACE`）。
+记忆的唯一天然来源是工作区下的 Markdown 文件。路径由运行环境决定：**默认当前项目的 `./.first_paramecium` 目录**（或环境变量 `MEMORY_WORKSPACE`）。
 
 ## 文件约定
 

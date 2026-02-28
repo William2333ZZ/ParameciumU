@@ -27,8 +27,8 @@ Gateway 只做控制面与转发；要执行 agent 对话需**单独启动 agent
 在**另一终端**或**另一机器**启动 agent 进程，连接同一 Gateway；可启动多个，用不同 `AGENT_ID`/`DEVICE_ID`：
 
 ```bash
-# 终端 2：本机默认 .u agent
-GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u npm run agent
+# 终端 2：本机默认 .first_paramecium agent
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent
 
 # 终端 3：再一个 agent，例如 A_agent
 GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
@@ -37,11 +37,11 @@ GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run age
 GATEWAY_URL=ws://192.168.1.100:9347 AGENT_ID=my_agent npm run agent
 ```
 
-每个 agent 的 `AGENT_DIR` 需与 `.u` 同构（其下 `cron/`、`skills/` 等；会话由 Gateway 管理）。可在项目内复制 `.u` 为 `A_agent`、`B_agent` 再指定 `AGENT_DIR`。
+每个 agent 的 `AGENT_DIR` 需与 `.first_paramecium` 同构（其下 `cron/`、`skills/` 等；会话由 Gateway 管理）。可在项目内复制 `.first_paramecium` 为 `A_agent`、`B_agent` 再指定 `AGENT_DIR`。
 
 环境变量：
 
-- `GATEWAY_PORT`（默认 9347）、`GATEWAY_HOST`（默认 127.0.0.1）、`CRON_STORE`（默认 `./.u/cron/jobs.json`）
+- `GATEWAY_PORT`（默认 9347）、`GATEWAY_HOST`（默认 127.0.0.1）、`CRON_STORE`（默认 `./.first_paramecium/cron/jobs.json`）
 - **数据目录**：`GATEWAY_DATA_DIR` 或 `GATEWAY_STATE_DIR` 覆盖默认 `./.gateway`（与 OpenClaw 的 `~/.openclaw` 对应，但为项目内目录）
 - **认证**：`GATEWAY_TOKEN` 或 `GATEWAY_PASSWORD` 任一非空即启用；客户端首条须为 `connect` 并带 `token`/`password`
 - **TLS**：`GATEWAY_TLS_CERT`、`GATEWAY_TLS_KEY` 为证书与私钥文件路径时启用 wss
@@ -57,9 +57,9 @@ GATEWAY_URL=ws://192.168.1.100:9347 AGENT_ID=my_agent npm run agent
 | `.gateway/sessions/sessions.json` | Session 元数据（sessionKey → SessionEntry） |
 | `.gateway/sessions/transcripts/*.json` | 所有会话的 transcript |
 
-会话均由控制面管理，**所有会话都有 sessionKey**；不预置固定 key，未指定 sessionKey 时按时间新建（`agent:.u:s-<timestamp>-<random>`）。agent 目录（`.u`）不包含 chat.json，会话均在 Gateway 侧。Cron 仍使用 `./.u/cron/jobs.json`（或 `CRON_STORE`），本机 agent 工作区为 cwd 下的 `./.u`。
+会话均由控制面管理，**所有会话都有 sessionKey**；不预置固定 key，未指定 sessionKey 时按时间新建（`agent:.first_paramecium:s-<timestamp>-<random>`）。agent 目录（`.first_paramecium`）不包含 chat.json，会话均在 Gateway 侧。Cron 仍使用 `./.first_paramecium/cron/jobs.json`（或 `CRON_STORE`），本机 agent 工作区为 cwd 下的 `./.first_paramecium`。
 
-本机默认 agent 与存放其信息的文件夹同名，即 **`.u`**（其下 skill、cron、chat 等）；**deviceId** 固定为 `1270000001`，便于与远程 Node 区分；`agents.list` / `node.list` 中可见。
+本机默认 agent 与存放其信息的文件夹同名，即 **`.first_paramecium`**（其下 skill、cron、chat 等）；**deviceId** 固定为 `1270000001`，便于与远程 Node 区分；`agents.list` / `node.list` 中可见。
 
 ## 协议
 
@@ -88,9 +88,9 @@ GATEWAY_URL=ws://192.168.1.100:9347 AGENT_ID=my_agent npm run agent
 
 ## 以 Agent 身份注册到 Gateway（多 agent / 多目录）
 
-若你有多个与 **`.u` 同构**的目录（例如复制 `.u` 为 `A_agent`，其下同样有 chat.json、cron/、skills/ 等），希望每个以独立 agentId 注册到同一 Gateway：
+若你有多个与 **`.first_paramecium` 同构**的目录（例如复制 `.first_paramecium` 为 `A_agent`，其下同样有 cron/、skills/ 等），希望每个以独立 agentId 注册到同一 Gateway：
 
-1. **目录结构**：`A_agent` 与 `./.u` **本身目录结构一致**（即 `A_agent/cron/`、`A_agent/skills/` 等；无 chat.json），不是「A_agent 下再套一层 .u」。
+1. **目录结构**：`A_agent` 与 `./.first_paramecium` **本身目录结构一致**（即 `A_agent/cron/`、`A_agent/skills/` 等；无 chat.json），不是「A_agent 下再套一层 .first_paramecium」。
 2. 启动一个 **Agent 客户端**进程，连接 Gateway 并声明 `role: "agent"`、`agentId`、`deviceId`；收到派发时在该目录下执行一轮对话并回传 `node.invoke.result`。
 
 从 monorepo 根目录执行（需先 `npm run build`）：
@@ -99,7 +99,7 @@ GATEWAY_URL=ws://192.168.1.100:9347 AGENT_ID=my_agent npm run agent
 # 终端 1：启动 Gateway
 npm run gateway
 
-# 终端 2：启动 A_agent（使用与 .u 同构的 ./A_agent 目录）
+# 终端 2：启动 A_agent（使用与 .first_paramecium 同构的 ./A_agent 目录）
 GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
 
 # 或直接 node（若在 apps/agent 下）
@@ -110,7 +110,7 @@ GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=/path/to/A_agent node
 
 - **GATEWAY_URL**（必填）：Gateway WebSocket 地址。
 - **AGENT_ID**（必填）：注册到 Gateway 的 agentId，Control UI / RPC 中可见。
-- **AGENT_DIR**（可选）：该 agent 的目录，**与 .u 同构**（即目录结构同 `./.u`：其下 `cron/jobs.json`、`skills/`、`memory/` 等；会话在 Gateway）；未设则用 `cwd/.u`。兼容旧名 `AGENT_ROOT_DIR`。启动前可复制整个 `.u` 为 `A_agent` 再指定 `AGENT_DIR=./A_agent`。
+- **AGENT_DIR**（必填）：该 agent 的目录，**与 .first_paramecium 同构**（即目录结构同 `./.first_paramecium`：其下 `cron/jobs.json`、`skills/`、`memory/` 等；会话在 Gateway）。启动前可复制整个 `.first_paramecium` 为 `A_agent` 再指定 `AGENT_DIR=./A_agent`。兼容旧名 `AGENT_ROOT_DIR`。
 - **DEVICE_ID**（可选）：设备标识，默认与 AGENT_ID 相同；Gateway 按 deviceId 聚合成 Node。
 - **GATEWAY_TOKEN** / **GATEWAY_PASSWORD**（可选）：与 Gateway 认证一致时填写。
 

@@ -82,11 +82,14 @@ function agentMessagesToContext(messages: MinimalMessage[], tools: MinimalTool[]
 		}
 		if (m.role === "user") msgs.push({ role: "user", content: blocks });
 		else if (m.role === "assistant") {
-			const msg: { role: "assistant"; content: typeof blocks; toolCalls?: Array<{ id: string; name: string; arguments?: string }> } = { role: "assistant", content: blocks };
+			const msg: {
+				role: "assistant";
+				content: typeof blocks;
+				toolCalls?: Array<{ id: string; name: string; arguments?: string }>;
+			} = { role: "assistant", content: blocks };
 			if (m.toolCalls?.length) msg.toolCalls = m.toolCalls;
 			msgs.push(msg);
-		}
-		else if (m.role === "toolResult" && "toolCallId" in m && m.toolCallId)
+		} else if (m.role === "toolResult" && "toolCallId" in m && m.toolCallId)
 			msgs.push({
 				role: "toolResult",
 				toolCallId: m.toolCallId,

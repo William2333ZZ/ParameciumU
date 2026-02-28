@@ -15,7 +15,7 @@ read_when:
 - 与现有 **Markdown + YAML frontmatter** 完全兼容，无需改文档结构。
 - 支持基于文件/目录的 **sidebar**，和 `start/`、根目录混排。
 - 构建产物为静态 HTML，可部署到任意静态托管。
-- 与 monoU 主技术栈（React/Vite）无关，仅文档站使用 Vue；若更熟悉 Docusaurus 也可用其替代，步骤类似。
+- 与 ParameciumU 主技术栈（React/Vite）无关，仅文档站使用 Vue；若更熟悉 Docusaurus 也可用其替代，步骤类似。
 
 ## 二、本地快速启动
 
@@ -35,7 +35,7 @@ npm install -D vitepress
 
 - **title / description**：站点标题与描述。
 - **themeConfig.sidebar**：按「入门 / 架构与概念 / Gateway / 应用 / 设计参考」分组，对应 `docs/` 下文件。
-- **base**：若部署到 `https://xxx.github.io/monoU/` 则设为 `'/monoU/'`；根域名则 `'/'`。
+- **base**：若部署到 `https://xxx.github.io/ParameciumU/` 则设为 `'/ParameciumU/'`；根域名则 `'/'`。
 - **ignoreDeadLinks**：文档中若含示例 URL（如 `http://localhost:5173`），可设 `true` 避免构建时报死链错误。
 
 ### 2.3 启动开发服务器
@@ -60,9 +60,11 @@ npx vitepress build docs
 
 | 侧栏分组     | 路径 |
 |--------------|------|
-| 入门         | `README.md`（首页）, `guide/getting-started.md` |
-| 架构与概念   | `architecture/vision-and-roadmap.md`, `architecture.md`, `agent-directory.md` |
-| 运行与协议   | `runtime/gateway.md`, `apps.md`, `packages.md`, `agent-running.md`, `heartbeat.md` |
+| 入门         | `README.md`（首页）, `start/getting-started.md` |
+| 架构与概念   | `concepts/vision-and-roadmap.md`, `architecture.md`, `agent-directory.md`, `paramecium-vision.md` |
+| Gateway      | `gateway/index.md`, `gateway/protocol.md` |
+| 自动化       | `automation/cron.md`, `automation/heartbeat.md` |
+| 运行         | `runtime/apps.md`, `packages.md`, `agent-running.md`, `heartbeat.md` |
 | Control UI   | `control-ui/design.md`, `node-capabilities.md` |
 | 参考         | `reference/code-skill-design.md`, `browser-node-design.md` |
 | 维护         | `deploy-docs-site.md` |
@@ -86,7 +88,7 @@ npx vitepress build docs
 
 ### 4.2 Vercel / Netlify
 
-- **Vercel**：根目录选 monoU 仓库，Build 命令填 `npx vitepress build docs`，输出目录填 `docs/.vitepress/dist`；若根目录无 package.json 需在「Root Directory」选到包含 package.json 的目录。
+- **Vercel**：根目录选 ParameciumU 仓库，Build 命令填 `npx vitepress build docs`，输出目录填 `docs/.vitepress/dist`；若根目录无 package.json 需在「Root Directory」选到包含 package.json 的目录。
 - **Netlify**：类似，Build command: `npx vitepress build docs`，Publish directory: `docs/.vitepress/dist`。
 
 ### 4.3 自建服务器
@@ -107,4 +109,4 @@ npx vitepress build docs
 
 ## 下一步
 
-- 快速开始：[guide/getting-started](./guide/getting-started.md)
+- 快速开始：[start/getting-started](./start/getting-started.md)

@@ -17,7 +17,8 @@ coverage/
 docs/.vitepress/dist
 docs/.vitepress/cache
 
-# 内嵌参考仓库，不纳入本库版本控制
+# 内嵌参考仓库 / 其他开源项目，不纳入本库版本控制（不上传）
 openclaw/
 pi-mono/
+opencode/
 skills/

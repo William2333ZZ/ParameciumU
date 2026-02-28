@@ -1,5 +1,5 @@
 ---
-summary: "Agent template for SOUL.md — who you are (monoU .u)"
+summary: "Agent template for SOUL.md — who you are (ParameciumU .first_paramecium)"
 read_when:
   - Bootstrapping a workspace or agent dir manually
   - First run of the agent
@@ -42,4 +42,4 @@ If you change this file, tell the user — it's your soul, and they should know.
 
 _This file is yours to evolve. As you learn who you are, update it._
 
-_Adapted from OpenClaw SOUL.md for monoU agent template (./.u)._
+_Adapted from OpenClaw SOUL.md for ParameciumU agent template (./.first_paramecium)._

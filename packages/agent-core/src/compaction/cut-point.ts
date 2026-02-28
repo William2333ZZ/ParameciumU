@@ -21,10 +21,7 @@ function getValidCutIndices(messages: AgentMessage[]): number[] {
  * summarize the rest. Returns toSummarize (older) and recent (kept).
  * Cut only at valid boundaries (user/system) so we never orphan toolResult.
  */
-export function findCutPoint(
-	messages: AgentMessage[],
-	keepRecentTokens: number,
-): CutPointResult {
+export function findCutPoint(messages: AgentMessage[], keepRecentTokens: number): CutPointResult {
 	if (messages.length === 0) {
 		return { toSummarize: [], recent: [] };
 	}
@@ -42,10 +39,7 @@ export function findCutPoint(
 	}
 
 	// cutIndex = largest valid cut <= tentativeEnd (so we don't cut in the middle of a turn)
-	const cutIndex =
-		tentativeEnd < 0
-			? 0
-			: Math.max(0, ...validCuts.filter((j) => j <= tentativeEnd), 0);
+	const cutIndex = tentativeEnd < 0 ? 0 : Math.max(0, ...validCuts.filter((j) => j <= tentativeEnd), 0);
 
 	const toSummarize = messages.slice(0, cutIndex);
 	const recent = messages.slice(cutIndex);

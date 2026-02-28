@@ -1,7 +1,7 @@
 /**
  * Knowledge skill：knowledge_search、knowledge_get、knowledge_sync、knowledge_add。
- * 工作区默认 ./.u（KNOWLEDGE.md、knowledge/*.md），或 KNOWLEDGE_WORKSPACE。
- * 可选 FTS5 索引（Node 22+ node:sqlite）存于 .u/knowledge/index.sqlite；可选向量混合检索（EMBEDDING_API_KEY）。
+ * 工作区默认 ./.first_paramecium（KNOWLEDGE.md、knowledge/*.md），或 KNOWLEDGE_WORKSPACE。
+ * 可选 FTS5 索引（Node 22+ node:sqlite）存于 .first_paramecium/knowledge/index.sqlite；可选向量混合检索（EMBEDDING_API_KEY）。
  */
 
 import type { AgentTool } from "@monou/agent-core";
@@ -17,7 +17,7 @@ const DEFAULT_EMBEDDING_BASE = "https://api.openai.com/v1";
 function getWorkspaceDir(): string {
 	const env = process.env.KNOWLEDGE_WORKSPACE?.trim();
 	if (env) return resolve(env);
-	return join(process.cwd(), ".u");
+	return join(process.cwd(), ".first_paramecium");
 }
 
 function getIndexPath(workspaceDir: string): string {
@@ -465,7 +465,7 @@ export const tools: AgentTool[] = [
 	},
 	{
 		name: "knowledge_sync",
-		description: "重建 FTS5 全文索引（.u/knowledge/index.sqlite）。在大量修改 KNOWLEDGE.md 或 knowledge/*.md 后调用可提升 knowledge_search 速度与准确性。需 Node 22+。",
+		description: "重建 FTS5 全文索引（.first_paramecium/knowledge/index.sqlite）。在大量修改 KNOWLEDGE.md 或 knowledge/*.md 后调用可提升 knowledge_search 速度与准确性。需 Node 22+。",
 		parameters: { type: "object", properties: {} },
 	},
 	{
@@ -526,7 +526,7 @@ export const tools: AgentTool[] = [
 	},
 	{
 		name: "knowledge_skill_create",
-		description: "将某一主题的知识转化为 Skill。创建 .u/skills/<topic>_knowledge/，之后 run 会自动注册 <topic>_knowledge_search，仅在该主题知识库中检索。例如 topic=stock 则创建 stock_knowledge，用于股票类问题。",
+		description: "将某一主题的知识转化为 Skill。创建 .first_paramecium/skills/<topic>_knowledge/，之后 run 会自动注册 <topic>_knowledge_search，仅在该主题知识库中检索。例如 topic=stock 则创建 stock_knowledge，用于股票类问题。",
 		parameters: {
 			type: "object",
 			properties: {
@@ -758,7 +758,7 @@ export async function executeTool(
 			const topic = safePathSegment(String(args?.topic ?? "").trim()) || String(args?.topic ?? "").trim();
 			if (!topic) return { content: "topic is required", isError: true };
 			const skillDirName = `${topic}_knowledge`;
-			// 技能目录必须在 agent 工作区内：workspaceDir 即 .u（agent 目录），skills 应在其下
+			// 技能目录必须在 agent 工作区内：workspaceDir 即 .first_paramecium（agent 目录），skills 应在其下
 			const skillDir = join(workspaceDir, "skills", skillDirName);
 			if (existsSync(skillDir)) {
 				return { content: JSON.stringify({ ok: false, error: `Skill already exists: ${skillDirName}` }), isError: true };

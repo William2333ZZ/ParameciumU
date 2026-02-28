@@ -143,7 +143,7 @@ async function run() {
   }
   ok(".u 已连接");
 
-  const createMsg = `请用 agent-creator 技能创建智能体。要求：AGENT_ID=${STOCK_AGENT_ID}，GATEWAY_URL=${gwUrl}。在项目根目录执行：AGENT_ID=${STOCK_AGENT_ID} GATEWAY_URL=${gwUrl} ./.u/skills/agent-creator/scripts/create-and-connect.sh`;
+  const createMsg = `请用 agent-creator 技能创建智能体。要求：AGENT_ID=${STOCK_AGENT_ID}，GATEWAY_URL=${gwUrl}。在项目根目录执行：AGENT_ID=${STOCK_AGENT_ID} GATEWAY_URL=${gwUrl} ./.first_paramecium/skills/agent-creator/scripts/create-and-connect.sh`;
   const createRes = await callGateway<{ text?: string; toolCalls?: unknown[] }>({
     url: gwUrl,
     method: "agent",

@@ -41,8 +41,7 @@ export interface AgentRunResult {
  */
 function defaultConvertToLlm(messages: AgentMessage[]): AgentMessage[] {
 	return messages.filter(
-		(m) =>
-			m.role === "user" || m.role === "assistant" || m.role === "system" || m.role === "toolResult",
+		(m) => m.role === "user" || m.role === "assistant" || m.role === "system" || m.role === "toolResult",
 	);
 }
 
@@ -131,14 +130,7 @@ export async function runAgentTurnWithTools(
 	executeTool: ToolExecutor,
 	signal?: AbortSignal,
 ): Promise<AgentRunResult> {
-	return runAgentTurnWithToolsStreaming(
-		state,
-		config,
-		streamFn,
-		userInput,
-		executeTool,
-		signal,
-	);
+	return runAgentTurnWithToolsStreaming(state, config, streamFn, userInput, executeTool, signal);
 }
 
 /**
@@ -172,13 +164,7 @@ export async function runAgentTurnWithToolsStreaming(
 			}
 		}
 
-		const result = await runOneTurnStreaming(
-			currentState,
-			config,
-			streamFn,
-			signal,
-			onTextChunk,
-		);
+		const result = await runOneTurnStreaming(currentState, config, streamFn, signal, onTextChunk);
 		lastText = result.text;
 		allToolCalls = [...allToolCalls, ...result.toolCalls];
 
@@ -208,12 +194,7 @@ export async function runAgentTurnWithToolsStreaming(
 				}
 			}
 			const out = await executeTool(call.name, args);
-			stateWithResults = appendToolResult(
-				stateWithResults,
-				call.id,
-				out.content,
-				out.isError,
-			);
+			stateWithResults = appendToolResult(stateWithResults, call.id, out.content, out.isError);
 			// Steering after each tool: if user sent new messages, skip remaining tools and inject (same as pi)
 			const afterToolSteering = (await config.getSteeringMessages?.()) ?? [];
 			if (afterToolSteering.length > 0) {

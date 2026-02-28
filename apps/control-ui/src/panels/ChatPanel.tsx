@@ -570,6 +570,16 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     <div className="chat-view">
       <aside className="chat-sidebar">
         <div className="chat-sidebar-section">
+          <label className="chat-sidebar-label">Agent</label>
+          <input
+            type="text"
+            value={agentId}
+            onChange={(e) => setAgentId(e.target.value)}
+            placeholder=".u"
+            className="chat-agent-input"
+          />
+        </div>
+        <div className="chat-sidebar-section">
           <div className="chat-sidebar-label-row">
             <span className="chat-sidebar-label">会话</span>
             <span className="chat-sidebar-actions">
@@ -623,7 +633,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       <div className="chat-main">
         <div className="chat-area">
           <header className="chat-agent-header" aria-live="polite">
-            对话
+            与 <strong>{agentId || ".u"}</strong> 对话
           </header>
           <div className="chat-messages">
             {historyLoading && <p className="muted">加载历史…</p>}

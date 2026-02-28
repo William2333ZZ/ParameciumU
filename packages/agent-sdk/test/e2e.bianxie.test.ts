@@ -12,10 +12,10 @@ const cwdEnv = path.resolve(process.cwd(), ".env");
 config({ path: rootEnv });
 config({ path: cwdEnv });
 
-import { describe, expect, it } from "vitest";
 import type { AgentMessage } from "@monou/agent-core";
+import { createStreamFn, registerBuiltins } from "@monou/llm-provider";
+import { describe, expect, it } from "vitest";
 import { createAgent, runAgentTurnWithTools } from "../src/agent";
-import { registerBuiltins, createStreamFn } from "@monou/llm-provider";
 
 const BIANXIE_API_KEY = process.env.BIANXIE_API_KEY;
 const BIANXIE_BASE_URL = process.env.BIANXIE_BASE_URL;
@@ -54,15 +54,25 @@ function createBianxieStreamFn() {
 		messages: AgentMessage[],
 		tools: Parameters<typeof llmStreamFn>[1],
 		signal?: AbortSignal,
-	): AsyncIterable<{ type: "text"; text: string } | { type: "tool_call"; call: { id: string; name: string; arguments?: string } } | { type: "done" }> {
+	): AsyncIterable<
+		| { type: "text"; text: string }
+		| { type: "tool_call"; call: { id: string; name: string; arguments?: string } }
+		| { type: "done" }
+	> {
 		for await (const chunk of llmStreamFn(toMinimalMessages(messages), tools, signal)) {
-			yield chunk as { type: "text"; text: string } | { type: "tool_call"; call: { id: string; name: string; arguments?: string } } | { type: "done" };
+			yield chunk as
+				| { type: "text"; text: string }
+				| { type: "tool_call"; call: { id: string; name: string; arguments?: string } }
+				| { type: "done" };
 		}
 	};
 }
 
 /** Simple calculator: executeTool(name, args) returns { content, isError? } */
-function makeCalculateExecutor(): (name: string, args: Record<string, unknown>) => Promise<{ content: string; isError?: boolean }> {
+function makeCalculateExecutor(): (
+	name: string,
+	args: Record<string, unknown>,
+) => Promise<{ content: string; isError?: boolean }> {
 	return async (name: string, args: Record<string, unknown>) => {
 		if (name !== "calculate") return { content: `Unknown tool: ${name}`, isError: true };
 		const expression = typeof args.expression === "string" ? args.expression : String(args.expression ?? "");
@@ -85,13 +95,23 @@ describe("e2e bianxie", () => {
 			return;
 		}
 		const streamFn = createBianxieStreamFn();
-		const { state, config, streamFn: sf } = createAgent({
+		const {
+			state,
+			config,
+			streamFn: sf,
+		} = createAgent({
 			systemPrompt: "You are a helpful assistant. Keep your responses concise.",
 			tools: [],
 			streamFn,
 		});
 
-		const result = await runAgentTurnWithTools(state, config, sf, "What is 2+2? Answer with just the number.", makeCalculateExecutor());
+		const result = await runAgentTurnWithTools(
+			state,
+			config,
+			sf,
+			"What is 2+2? Answer with just the number.",
+			makeCalculateExecutor(),
+		);
 
 		expect(result.state.messages.length).toBeGreaterThanOrEqual(2);
 		expect(result.state.messages.some((m) => m.role === "user")).toBe(true);
@@ -114,10 +134,18 @@ describe("e2e bianxie", () => {
 			{
 				name: "calculate",
 				description: "Evaluate a mathematical expression. Example: calculate(expression: '2+2')",
-				parameters: { type: "object", properties: { expression: { type: "string", description: "The expression to evaluate" } }, required: ["expression"] } as Record<string, unknown>,
+				parameters: {
+					type: "object",
+					properties: { expression: { type: "string", description: "The expression to evaluate" } },
+					required: ["expression"],
+				} as Record<string, unknown>,
 			},
 		];
-		const { state, config, streamFn: sf } = createAgent({
+		const {
+			state,
+			config,
+			streamFn: sf,
+		} = createAgent({
 			systemPrompt: "You are a helpful assistant. Always use the calculate tool for math.",
 			tools,
 			streamFn,

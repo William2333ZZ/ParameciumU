@@ -8,7 +8,7 @@ read_when:
 
 # Control UI 界面与交互设计
 
-本文档定义 monoU Control UI 的入口逻辑、信息架构、层级与交互，与 [architecture.md](../architecture/architecture.md)、[gateway.md](../runtime/gateway.md) 一致。
+本文档定义 ParameciumU Control UI 的入口逻辑、信息架构、层级与交互，与 [architecture.md](../concepts/architecture.md)、[gateway.md](../gateway/protocol.md) 一致。
 
 ---
 
@@ -30,7 +30,7 @@ read_when:
   - 本地存储：上次使用的 URL/Token 自动填充（仅填充，不自动连接）。
   - URL 参数：`?gatewayUrl=ws://...&token=...` 用于外链/嵌入场景；连接成功后建议清除 query，避免泄露。
 - **默认 URL**：开发时 localhost 可默认 `ws://127.0.0.1:18790`（与 README 默认端口一致）；生产/非 localhost 留空。
-- **错误**：连接失败时在表单下方展示错误信息；对「invalid request frame」等给出「请确认是 monoU Gateway」的提示（保持现有逻辑）。
+- **错误**：连接失败时在表单下方展示错误信息；对「invalid request frame」等给出「请确认是 ParameciumU Gateway」的提示（保持现有逻辑）。
 
 ### 2.2 连接后（已连接）
 
@@ -73,7 +73,7 @@ read_when:
 - **是，同一套。** 所有接入（Control UI、TUI、飞书等）的会话都由 **Gateway 统一存储**，不存在「飞书一套、Control UI 另一套」。
 - **存储**：`.gateway/sessions/sessions.json`（元数据）+ `.gateway/sessions/transcripts/&lt;sessionKey&gt;.json`（单条会话内容）。无论来自哪端，只要命中同一 sessionKey，就是同一条会话。
 - **sessionKey 来源**：
-  - Control UI / TUI 发 `chat.send` 或 `agent` 时：可带 `sessionKey`，或不带则由 Gateway 按策略新建（如 `agent:.u:s-&lt;timestamp&gt;-&lt;random&gt;`）。
+  - Control UI / TUI 发 `chat.send` 或 `agent` 时：可带 `sessionKey`，或不带则由 Gateway 按策略新建（如 `agent:.first_paramecium:s-&lt;timestamp&gt;-&lt;random&gt;`）。
   - 飞书等 Connector 发 `connector.message.inbound` 时：Gateway 固定用 `connector:&lt;connectorId&gt;:chat:&lt;chatId&gt;` 作为 sessionKey（例如 `connector:feishu:chat:oc_xxx`），并写入同一份 sessions.json / transcripts。
 - **会话列表**：Control UI 的「消息」视图中的最近聊天列表及 Agent 通讯录历史对话等会调用 `sessions.list`，拿到的是 **全部** Gateway 会话，包括 Control UI 自己开的、TUI 用过的、飞书某群聊对应的；可通过 sessionKey 前缀或 SessionEntry 的 channel/displayName 等区分来源。
 - **小结**：多端看到的「会话」是同一套；不同接入只是不同入口，最终都对应到 Gateway 的某条 sessionKey，便于统一管理、排查和后续做「在 Control UI 里打开飞书某群对应的会话」等能力。
@@ -98,7 +98,7 @@ read_when:
 
 ```
 ┌─────────────────────┐
-│ ● monoU             │  连接指示 + 品牌
+│ ● ParameciumU       │  连接指示 + 品牌
 ├─────────────────────┤
 │ 消息                │  主任务，默认选中 → 中栏最近聊天 + 右栏聊天
 │ Agent 通讯录        │  按节点分组智能体，右侧详情（状态/定时任务/历史对话）
@@ -148,7 +148,7 @@ read_when:
 
 - **当前**：无 URL 路由，仅内存 state（tab、openChatPayload）。
 - **可选演进**：
-  - 使用 Hash 或 History 路由，例如：`#/chat`、`#/topology`、`#/sessions`、`#/cron`、`#/settings`；`#/chat?agentId=.u&sessionKey=...` 便于分享或书签。
+  - 使用 Hash 或 History 路由，例如：`#/chat`、`#/topology`、`#/sessions`、`#/cron`、`#/settings`；`#/chat?agentId=.first_paramecium&sessionKey=...` 便于分享或书签。
   - 连接页仍为独立「未连接」态，不写 Tab 路由；连接后根据 hash 恢复 Tab，缺省为 `/chat`。
 
 若不引入路由，保持「侧栏 Tab + 内存 state」即可，实现简单。
@@ -168,6 +168,6 @@ read_when:
 ## 下一步
 
 - 节点能力与浏览器接入：[node-capabilities](./node-capabilities.md)
-- Gateway 协议与会话：[gateway](../runtime/gateway.md)
+- Gateway 协议与会话：[gateway](../gateway/protocol.md)
 - 应用运行方式：[apps](../runtime/apps.md)
-- 整体架构：[architecture](../architecture/architecture.md)
+- 整体架构：[architecture](../concepts/architecture.md)

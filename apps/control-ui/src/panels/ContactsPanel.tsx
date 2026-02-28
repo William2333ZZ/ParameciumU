@@ -118,6 +118,7 @@ export function ContactsPanel({ onOpenChat }: Props) {
   return (
     <div className="contacts-panel">
       <div className="contacts-list-column">
+        <h2 className="contacts-list-title">Agent 通讯录</h2>
         {loadingList ? (
           <p className="loading">加载中…</p>
         ) : err ? (

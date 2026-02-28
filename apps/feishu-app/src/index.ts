@@ -4,53 +4,56 @@
  */
 import "dotenv/config";
 import { loadConfig } from "./config.js";
+import { createEventDispatcher, createFeishuWSClient, registerInboundHandler } from "./feishu-client.js";
 import { createGatewayConnectorClient } from "./gateway-connector-client.js";
-import { createFeishuWSClient, createEventDispatcher, registerInboundHandler } from "./feishu-client.js";
 import { sendMessage } from "./send.js";
 
 async function main() {
-  const config = loadConfig();
-  const log = (msg: string) => console.log(`[${new Date().toISOString()}] ${msg}`);
-  log(`Feishu App starting (connectorId=${config.connectorId})`);
-  log(`Gateway: ${config.gatewayWsUrl}`);
+	const config = loadConfig();
+	const log = (msg: string) => console.log(`[${new Date().toISOString()}] ${msg}`);
+	log(`Feishu App starting (connectorId=${config.connectorId})`);
+	log(`Gateway: ${config.gatewayWsUrl}`);
 
-  const gatewayClient = await createGatewayConnectorClient(config, config.connectorId, log, {
-    onPush: async (payload) => {
-      try {
-        await sendMessage(config, {
-          receiveId: payload.chatId,
-          receiveIdType: "chat_id",
-          text: payload.text,
-          replyToMessageId: payload.replyToId,
-        });
-        log(`[push] sent to chat ${payload.chatId}`);
-      } catch (err) {
-        log(`[push] failed to send to chat ${payload.chatId}: ${String(err)}`);
-      }
-    },
-  });
-  const gatewayRequest: (method: string, params?: Record<string, unknown>) => Promise<unknown> =
-    (method, params) => gatewayClient.request(method, params);
+	const gatewayClient = await createGatewayConnectorClient(config, config.connectorId, log, {
+		onPush: async (payload) => {
+			try {
+				await sendMessage(config, {
+					receiveId: payload.chatId,
+					receiveIdType: "chat_id",
+					text: payload.text,
+					replyToMessageId: payload.replyToId,
+				});
+				log(`[push] sent to chat ${payload.chatId}`);
+			} catch (err) {
+				log(`[push] failed to send to chat ${payload.chatId}: ${String(err)}`);
+			}
+		},
+	});
+	const gatewayRequest: (method: string, params?: Record<string, unknown>) => Promise<unknown> = (method, params) =>
+		gatewayClient.request(method, params);
 
-  const wsClient = createFeishuWSClient(config);
-  const eventDispatcher = createEventDispatcher(config);
-  registerInboundHandler(eventDispatcher, config, log, gatewayRequest);
+	const wsClient = createFeishuWSClient(config);
+	const eventDispatcher = createEventDispatcher(config);
+	registerInboundHandler(eventDispatcher, config, log, gatewayRequest);
 
-  wsClient.start({ eventDispatcher }).then(() => {
-    log("Feishu WebSocket connected");
-  }).catch((err) => {
-    log(`Feishu WebSocket error: ${String(err)}`);
-    process.exit(1);
-  });
+	wsClient
+		.start({ eventDispatcher })
+		.then(() => {
+			log("Feishu WebSocket connected");
+		})
+		.catch((err) => {
+			log(`Feishu WebSocket error: ${String(err)}`);
+			process.exit(1);
+		});
 
-  process.on("SIGINT", () => {
-    log("Shutting down");
-    gatewayClient.close();
-    process.exit(0);
-  });
+	process.on("SIGINT", () => {
+		log("Shutting down");
+		gatewayClient.close();
+		process.exit(0);
+	});
 }
 
 main().catch((err) => {
-  console.error("[feishu-app]", err);
-  process.exit(1);
+	console.error("[feishu-app]", err);
+	process.exit(1);
 });

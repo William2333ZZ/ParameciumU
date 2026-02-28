@@ -110,4 +110,4 @@ const CAPABILITY_REGISTRY = {
 
 - Control UI 整体设计：[design](./design.md)
 - Browser Node 设计：[browser-node-design](../reference/browser-node-design.md)
-- Gateway node.list / node.invoke：[gateway](../runtime/gateway.md)
+- Gateway node.list / node.invoke：[gateway](../gateway/protocol.md)

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "b44a0661-889c-4515-a7f5-6e253d6189fc",
+      "name": "Heartbeat",
+      "description": "Periodic learning/report (heartbeat). Set deliver to push to a connector.",
+      "enabled": true,
+      "createdAtMs": 1771917829021,
+      "updatedAtMs": 1772274229027,
+      "schedule": {
+        "kind": "every",
+        "everyMs": 1800000,
+        "anchorMs": 1771917829021
+      },
+      "payload": {
+        "kind": "agentTurn",
+        "message": "请根据 HEARTBEAT.md（若存在）或你的当前目标，简要汇报思考与进展；不要复述旧对话内容。若无事需汇报则回复 HEARTBEAT_OK."
+      },
+      "state": {
+        "nextRunAtMs": 1772276029021,
+        "lastRunAtMs": 1772274229027,
+        "lastStatus": "ok"
+      }
+    }
+  ]
+}

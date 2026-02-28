@@ -3,12 +3,7 @@
  */
 
 import type { AgentMessage, AgentState } from "@monou/agent-core";
-import {
-	compactState,
-	estimateMessagesTokens,
-	findCutPoint,
-	shouldCompact,
-} from "@monou/agent-core";
+import { compactState, estimateMessagesTokens, findCutPoint, shouldCompact } from "@monou/agent-core";
 import { describe, expect, it } from "vitest";
 
 function textMsg(role: "user" | "assistant" | "system", text: string): AgentMessage {
@@ -28,10 +23,7 @@ describe("compaction", () => {
 		});
 
 		it("returns false when tokens within limit", () => {
-			const messages = [
-				textMsg("user", "short"),
-				textMsg("assistant", "short reply"),
-			];
+			const messages = [textMsg("user", "short"), textMsg("assistant", "short reply")];
 			expect(shouldCompact(messages, 128000)).toBe(false);
 		});
 
@@ -44,10 +36,7 @@ describe("compaction", () => {
 
 	describe("findCutPoint", () => {
 		it("returns all as recent when under keepRecentTokens", () => {
-			const messages = [
-				textMsg("user", "hello"),
-				textMsg("assistant", "hi"),
-			];
+			const messages = [textMsg("user", "hello"), textMsg("assistant", "hi")];
 			const { toSummarize, recent } = findCutPoint(messages, 20000);
 			expect(toSummarize).toHaveLength(0);
 			expect(recent).toHaveLength(2);
@@ -131,16 +120,17 @@ describe("compaction", () => {
 			expect(systemMsg).toBeDefined();
 			const text = systemMsg!.content?.find((c) => c.type === "text");
 			expect(text && text.type === "text" ? text.text : "").toContain("Summary of older conversation.");
-			expect(result.messages.some((m) => m.role === "assistant" && (m.content[0] as { text?: string })?.text === "recent reply")).toBe(true);
+			expect(
+				result.messages.some(
+					(m) => m.role === "assistant" && (m.content[0] as { text?: string })?.text === "recent reply",
+				),
+			).toBe(true);
 		});
 	});
 
 	describe("estimateMessagesTokens", () => {
 		it("estimates tokens from text content", () => {
-			const messages = [
-				textMsg("user", "hello world"),
-				textMsg("assistant", "hi"),
-			];
+			const messages = [textMsg("user", "hello world"), textMsg("assistant", "hi")];
 			const t = estimateMessagesTokens(messages);
 			expect(t).toBeGreaterThan(0);
 			expect(t).toBeLessThan(10);

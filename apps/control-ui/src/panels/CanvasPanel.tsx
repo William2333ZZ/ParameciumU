@@ -234,7 +234,7 @@ function saveCanvasState(state: CanvasSavedState): void {
 }
 
 const ADD_NODE_CMD =
-  "AGENT_ID=my_agent GATEWAY_URL=ws://127.0.0.1:9347 ./.u/skills/agent-creator/scripts/create-and-connect.sh";
+  "AGENT_ID=my_agent GATEWAY_URL=ws://127.0.0.1:9347 ./.first_paramecium/skills/agent-creator/scripts/create-and-connect.sh";
 
 function CanvasInner({
   active,
@@ -396,7 +396,7 @@ function CanvasInner({
                 远程机器需安装 <strong>Node.js</strong>。将 monoU 同步到远程后，在远程执行
                 <code> npm install && npm run build</code>，再配置 GATEWAY_URL、AGENT_ID、AGENT_DIR 后运行{" "}
                 <code>node apps/gateway/dist/agent-client.js</code>。详见{" "}
-                <code>.u/skills/agent-creator/references/remote-deploy.md</code>
+                <code>.first_paramecium/skills/agent-creator/references/remote-deploy.md</code>
               </p>
             </section>
           </div>

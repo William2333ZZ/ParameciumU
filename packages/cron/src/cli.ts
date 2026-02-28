@@ -8,11 +8,11 @@ import { getDefaultStorePath } from "./index.js";
 import { runScheduler } from "./scheduler.js";
 
 async function main() {
-  const storePath = getDefaultStorePath(process.cwd());
-  await runScheduler(storePath);
+	const storePath = getDefaultStorePath(process.cwd());
+	await runScheduler(storePath);
 }
 
 main().catch((err) => {
-  console.error("[cron-scheduler] fatal:", err);
-  process.exit(1);
+	console.error("[cron-scheduler] fatal:", err);
+	process.exit(1);
 });

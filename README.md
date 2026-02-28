@@ -1,12 +1,12 @@
-# monoU — 主权智能体平台
+# ParameciumU — 主权智能体平台
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**monoU** 是以「智能体 = 标准化文件夹」为核心的个人/主权智能体产品。你可以在自己的设备上运行 Gateway 与 Agent，通过 Control UI、飞书、终端 TUI 等连接层与智能体对话；人格、记忆与技能定义都在你可控的目录中，可版本化、可迁移。
+**ParameciumU** 是以「智能体 = 标准化文件夹」为核心的个人/主权智能体产品。你是一只草履虫：可吸收营养（知识、技能）进化，可复制繁殖（多 Agent）。在自己的设备上运行 Gateway 与 Agent，通过 Control UI、飞书、终端 TUI 等与智能体对话；人格、记忆与技能定义都在你可控的目录中，启动时显式指定 **AGENT_DIR** 与 **AGENT_ID**，可版本化、可迁移。
 
 控制面（Gateway）只做路由与转发，不跑 LLM、不存人格；执行在边缘（Agent 进程），数据与定义在用户侧。
 
-[架构说明](docs/architecture/architecture.md) · [快速开始](docs/guide/getting-started.md) · [应用说明](docs/runtime/apps.md) · [产品愿景与路线图](docs/architecture/vision-and-roadmap.md)
+[架构说明](docs/concepts/architecture.md) · [快速开始](docs/start/getting-started.md) · [应用说明](docs/runtime/apps.md) · [产品愿景与路线图](docs/concepts/vision-and-roadmap.md)
 
 ## 前置要求
 
@@ -17,18 +17,18 @@
 
 ```bash
 # 克隆并构建
-git clone <your-repo-url> monoU && cd monoU
+git clone <your-repo-url> ParameciumU && cd ParameciumU
 npm install
 npm run build
 
-# 可选：初始化默认智能体目录 .u
-npm run u
+# 准备 agent 目录（无默认，显式指定）
+cp -r agents/sidekick .first_paramecium
 
 # 终端 1：启动 Gateway（默认 ws://127.0.0.1:9347）
 npm run gateway
 
-# 终端 2：启动 Agent 并连接 Gateway
-GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u AGENT_DIR=./.u npm run agent
+# 终端 2：启动 Agent（须指定 AGENT_DIR、AGENT_ID）
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent
 
 # 终端 3：打开 Web 控制台或 TUI
 npm run control-ui
@@ -38,25 +38,19 @@ npx u-tui
 
 浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:9347`）连接后即可与 Agent 对话。
 
-仅本机对话、不接 Gateway 时，可直接运行：
-
-```bash
-npm run u
-```
-
 ## 从源码开发
 
 推荐使用 **npm** 或 **pnpm** 构建。
 
 ```bash
-git clone <your-repo-url> monoU && cd monoU
+git clone <your-repo-url> ParameciumU && cd ParameciumU
 npm install
 npm run build
 
 # 开发时：Gateway 与 Agent 各开终端
 npm run gateway
-# 另一终端
-GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u npm run agent
+# 另一终端（显式指定 AGENT_DIR、AGENT_ID）
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent
 ```
 
 - 构建顺序：`packages`（shared → agent-core → skills → cron → agent-sdk → agent-template → llm-provider → agent-from-dir → tui → gateway），再 `apps`（gateway、agent）。
@@ -109,38 +103,38 @@ GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u npm run agent
 |--------------------|------|
 | 全量构建           | `npm run build` |
 | 启动 Gateway       | `npm run gateway` |
-| 启动 Agent（连 Gateway） | `GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.u npm run agent` |
+| 启动 Agent | `GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent` |
 | 开发 Control UI    | `npm run control-ui` |
 | 终端 TUI           | `npx u-tui` |
-| 本机对话（不连 Gateway） | `npm run u` |
 | 沙箱 Node          | `GATEWAY_URL=... npm run sandbox-node`（若已配置） |
-| Cron 常驻调度器    | `npm run cron:daemon` |
 
-更多环境变量与数据目录见 [apps.md](docs/runtime/apps.md) 与 [gateway.md](docs/runtime/gateway.md)。
+定时任务（Cron）由 **Agent 进程内** 的 runScheduler 执行，启动 `npm run agent` 即会到点跑任务，无需单独 `npm run cron:daemon`。详见 [apps](docs/runtime/apps.md)、[heartbeat](docs/runtime/heartbeat.md)。
+
+更多环境变量与数据目录见 [apps.md](docs/runtime/apps.md) 与 [Gateway](docs/gateway/protocol.md)。Agent 目录名自定，启动时显式传 `AGENT_DIR`、`AGENT_ID` 即可。
 
 ## 仓库结构
 
 ```
-monoU/
+ParameciumU/
 ├── apps/           # 可执行应用：gateway、agent、control-ui、feishu-app、sandbox-node 等
 ├── packages/       # 复用库与协议：shared、agent-core、skills、cron、gateway、agent-from-dir 等
-├── agents/         # 示例/测试智能体目录（与 .u 同构）
-├── .u/             # 本机默认智能体（可选，可自建或复制 agents/sidekick）
+├── agents/         # 示例/测试智能体目录（与 .first_paramecium 同构）
+├── .first_paramecium/ 或任意目录   # 智能体目录（复制 agents/sidekick，启动时 AGENT_DIR 指定）
 ├── docs/           # 文档
 └── scripts/        # 构建、测试、发布脚本
 ```
 
 ## 与 OpenClaw 的关系
 
-monoU **不依赖** OpenClaw 的代码或运行时，**不对齐**其协议。协议与实现为 monoU 自身需求服务；在架构清晰度、数据主权、多端接入与自动化能力上，规划为覆盖并超越同类方案。详见 [vision-and-roadmap.md](docs/architecture/vision-and-roadmap.md)。
+ParameciumU **不依赖** OpenClaw 的代码或运行时，**不对齐**其协议。协议与实现为 ParameciumU 自身需求服务；在架构清晰度、数据主权、多端接入与自动化能力上，规划为覆盖并超越同类方案。详见 [vision-and-roadmap.md](docs/architecture/vision-and-roadmap.md)。
 
 ## 文档索引
 
-- [快速开始](docs/guide/getting-started.md) — 构建、初始化 .u、启动 Gateway/Agent、Control UI、TUI、飞书、沙箱
-- [架构](docs/architecture/architecture.md) — 四层抽象、仓库与代码划分、控制面职责
+- [快速开始](docs/start/getting-started.md) — 构建、准备 agent 目录、启动 Gateway/Agent、Control UI、TUI、飞书、沙箱
+- [架构](docs/concepts/architecture.md) — 四层抽象、仓库与代码划分、控制面职责
 - [应用说明](docs/runtime/apps.md) — gateway、agent、control-ui、TUI、feishu-app、sandbox-node 环境变量与运行方式
-- [Gateway](docs/runtime/gateway.md) — 端口、认证、数据目录、会话策略
-- [产品愿景与路线图](docs/architecture/vision-and-roadmap.md) — 定位、设计原则、能力规划
+- [Gateway](docs/gateway/protocol.md) — 端口、认证、数据目录、会话策略
+- [产品愿景与路线图](docs/concepts/vision-and-roadmap.md) — 定位、设计原则、能力规划
 
 ## License
 

@@ -1,6 +1,6 @@
 ---
 name: cron
-description: "定时任务管理：列出、创建、更新、删除、立即运行与查看状态。调度类型支持 at（一次性时间）、every（固定间隔）、cron（cron 表达式）。不依赖 openclaw；任务持久化在 .u/cron/jobs.json。"
+description: "定时任务管理：列出、创建、更新、删除、立即运行与查看状态。调度类型支持 at（一次性时间）、every（固定间隔）、cron（cron 表达式）。不依赖 openclaw；任务持久化在 .first_paramecium/cron/jobs.json。"
 ---
 
 # Cron（定时任务）
@@ -50,10 +50,10 @@ description: "定时任务管理：列出、创建、更新、删除、立即运
 
 ### cron_start_scheduler
 
-启动**常驻定时调度器**（后台进程）。调度器会持续运行，按 `.u/cron/jobs.json` 中的任务到点自动更新状态（相当于到点自动执行 cron_run）。用户说「启动定时器」「开定时调度」时可调用。停止方式：关闭启动时所在终端或结束该进程。
+启动**常驻定时调度器**（后台进程）。调度器会持续运行，按 `.first_paramecium/cron/jobs.json` 中的任务到点自动更新状态（相当于到点自动执行 cron_run）。用户说「启动定时器」「开定时调度」时可调用。停止方式：关闭启动时所在终端或结束该进程。
 
-也可在项目根执行 `npm run cron:daemon` 直接启动调度器（monorepo 下已配置该脚本）。
+若使用 **apps/agent** 连接 Gateway，调度器已内嵌在 agent 进程内，无需单独启动。仅在未跑 agent 且需独立推进任务时间时，可在项目根执行 `npm run cron:daemon`（monorepo 下已配置该脚本）；该独立进程不会执行 agent turn。
 
 ## 存储
 
-任务与记忆等持久化数据统一放在**当前项目的 ./.u 目录**下。定时任务文件可由环境变量 `CRON_STORE` 指定，未设置时默认 `./.u/cron/jobs.json`。
+任务与记忆等持久化数据统一放在**当前项目的 ./.first_paramecium 目录**下。定时任务文件可由环境变量 `CRON_STORE` 指定，未设置时默认 `./.first_paramecium/cron/jobs.json`。

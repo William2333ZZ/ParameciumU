@@ -8,9 +8,9 @@ read_when:
 
 # Heartbeat：在线证明与周期学习
 
-> 与 Agent 目录、执行过程一起的代码级整合说明见 [agent-running.md](./agent-running.md)。
+> **推荐阅读**：完整版与侧栏入口见 [Heartbeat（自动化）](../automation/heartbeat.md)。与 Agent 目录、执行过程一起的代码级整合说明见 [agent-running.md](./agent-running.md)。
 
-本文档说明 monoU 中 **heartbeat** 的语义、与 Gateway 的关系、在 Cron 中的实现，以及如何与「不断学习」目标统一。
+本文档说明 ParameciumU 中 **heartbeat** 的语义、与 Gateway 的关系、在 Cron 中的实现，以及如何与「不断学习」目标统一。
 
 ---
 
@@ -68,14 +68,14 @@ read_when:
 
 ## 五、与 OpenClaw 的对比（执行逻辑）
 
-| 维度 | OpenClaw | monoU |
+| 维度 | OpenClaw | ParameciumU |
 |------|----------|--------|
 | 执行主体 | 网关侧或独立 runner 调 agent 跑一轮 | Agent 进程内 `runScheduler` + `onJobDue` 跑一轮 |
 | 存储 | 配置/调度在网关或配置中心 | 任务定义在 Agent 目录 `cron/jobs.json` |
 | 语义 | 定时唤醒、读 HEARTBEAT、可推送到渠道 | 一致：定时 agent turn、HEARTBEAT.md、HEARTBEAT_OK、可选 deliver 到 Connector |
-| 协议 | 自有 channel/heartbeat 配置 | 不兼容；monoU 用 Gateway + Cron RPC + connector.message.push |
+| 协议 | 自有 channel/heartbeat 配置 | 不兼容；ParameciumU 用 Gateway + Cron RPC + connector.message.push |
 
-**结论**：执行逻辑**概念上一致**——都是「周期跑一轮 agent、读 HEARTBEAT、无事则 HEARTBEAT_OK、可选推送」；monoU 用**单一 Cron 机制**统一实现，且任务与数据在 Agent 目录，更符合「定义即文件、执行在边缘」的原则。
+**结论**：执行逻辑**概念上一致**——都是「周期跑一轮 agent、读 HEARTBEAT、无事则 HEARTBEAT_OK、可选推送」；ParameciumU 用**单一 Cron 机制**统一实现，且任务与数据在 Agent 目录，更符合「定义即文件、执行在边缘」的原则。
 
 ---
 
@@ -86,11 +86,11 @@ read_when:
 3. **默认语义**：默认 Heartbeat 即「学习/汇报」任务，默认启用，prompt 为学习导向，并支持 `HEARTBEAT.md` 覆盖。
 4. **在线证明**：WebSocket 连接 = 在线；Agent 每次执行完 Heartbeat 任务后会调用 Gateway 的 `agent.heartbeat`，Gateway 更新该连接的 `lastHeartbeatAt`；`agents.list` 返回中带 `lastHeartbeatAt`，便于 UI 显示「最近活跃」。
 
-以上与 [architecture.md](../architecture/architecture.md)、[gateway.md](./gateway.md)、[vision-and-roadmap.md](../architecture/vision-and-roadmap.md) 一致，并强化「不断学习」为默认心跳语义。
+以上与 [architecture.md](../concepts/architecture.md)、[gateway.md](../gateway/protocol.md)、[vision-and-roadmap.md](../concepts/vision-and-roadmap.md) 一致，并强化「不断学习」为默认心跳语义。
 
 ## 下一步
 
 - Agent 运行机制与 Cron：[agent-running](./agent-running.md)
-- Agent 目录与 cron/jobs.json：[agent-directory](../architecture/agent-directory.md)
-- Gateway 协议：[gateway](./gateway.md)
-- 整体架构：[architecture](../architecture/architecture.md)
+- Agent 目录与 cron/jobs.json：[agent-directory](../concepts/agent-directory.md)
+- Gateway 协议：[gateway](../gateway/protocol.md)
+- 整体架构：[architecture](../concepts/architecture.md)

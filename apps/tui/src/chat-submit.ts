@@ -3,12 +3,12 @@
  * 抽离以便单元测试。
  */
 export type SubmitAction =
-  | { type: "help" }
-  | { type: "clear" }
-  | { type: "cron" }
-  | { type: "unknown_cmd"; raw: string }
-  | { type: "bang"; cmd: string }
-  | { type: "message"; value: string };
+	| { type: "help" }
+	| { type: "clear" }
+	| { type: "cron" }
+	| { type: "unknown_cmd"; raw: string }
+	| { type: "bang"; cmd: string }
+	| { type: "message"; value: string };
 
 /**
  * 解析用户提交的一行输入，返回应执行的动作。
@@ -18,20 +18,20 @@ export type SubmitAction =
  * - 单独 "!" 或其它：message（value 为 trim 后，bang 时保留原始 raw 给 shell）
  */
 export function getSubmitAction(raw: string): SubmitAction | null {
-  const value = raw.trim();
-  if (!value) return null;
+	const value = raw.trim();
+	if (!value) return null;
 
-  if (value.startsWith("/")) {
-    if (value === "/help" || value.startsWith("/help ")) return { type: "help" };
-    if (value === "/clear" || value.startsWith("/clear ")) return { type: "clear" };
-    if (value === "/cron" || value.startsWith("/cron ")) return { type: "cron" };
-    return { type: "unknown_cmd", raw: value };
-  }
+	if (value.startsWith("/")) {
+		if (value === "/help" || value.startsWith("/help ")) return { type: "help" };
+		if (value === "/clear" || value.startsWith("/clear ")) return { type: "clear" };
+		if (value === "/cron" || value.startsWith("/cron ")) return { type: "cron" };
+		return { type: "unknown_cmd", raw: value };
+	}
 
-  if (raw.startsWith("!") && raw !== "!") {
-    const cmd = raw.slice(1).trim();
-    return { type: "bang", cmd };
-  }
+	if (raw.startsWith("!") && raw !== "!") {
+		const cmd = raw.slice(1).trim();
+		return { type: "bang", cmd };
+	}
 
-  return { type: "message", value };
+	return { type: "message", value };
 }

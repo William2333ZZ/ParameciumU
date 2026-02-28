@@ -57,7 +57,7 @@ import {
 
 ## 3. @monou/skills
 
-**职责**：从目录加载 SKILL.md，格式化为 system prompt 片段（Agent Skills 约定）。仅依赖文件系统与约定目录结构，无 monoU 以外运行时依赖。
+**职责**：从目录加载 SKILL.md，格式化为 system prompt 片段（Agent Skills 约定）。仅依赖文件系统与约定目录结构，无 ParameciumU 以外运行时依赖。
 
 **依赖**：无。
 
@@ -74,22 +74,22 @@ import {
 | 选项 | 说明 |
 |------|------|
 | `cwd` | 当前工作目录，用于解析相对路径；默认 `process.cwd()`。 |
-| `agentDir` | Agent 根目录（monoU 中即 `.u` 或与 .u 同构的目录）。未传时使用包内默认解析（非 monoU 标配，建议调用方显式传入）。 |
+| `agentDir` | Agent 根目录（ParameciumU 中即 `.first_paramecium` 或与之间构的目录）。未传时使用包内默认解析（建议调用方显式传入）。 |
 | `skillPaths` | 额外技能路径列表（文件或目录），相对路径按 `cwd` 解析。 |
-| `includeDefaults` | 是否加载「默认」位置；默认 `true`。为 true 时从 `agentDir/skills` 加载；若传了 `cwd`，还会从 cwd 下某约定配置目录的 `skills` 子目录加载（兼容旧约定，monoU 典型用法只需传 `agentDir`）。 |
+| `includeDefaults` | 是否加载「默认」位置；默认 `true`。为 true 时从 `agentDir/skills` 加载；若传了 `cwd`，还会从 cwd 下某约定配置目录的 `skills` 子目录加载（兼容旧约定，ParameciumU 典型用法只需传 `agentDir`）。 |
 
-**monoU 典型用法**：由 agent-from-dir、agent-sdk 等调用时传入 `agentDir`（如 `.u`），主要加载 `agentDir/skills`；需要额外技能目录时用 `skillPaths`。
+**ParameciumU 典型用法**：由 agent-from-dir、agent-sdk 等调用时传入 `agentDir`（如 `.first_paramecium`），主要加载 `agentDir/skills`；需要额外技能目录时用 `skillPaths`。
 
 ```ts
 import { loadSkills, loadSkillsFromDir, formatSkillsForPrompt } from "@monou/skills";
 import path from "node:path";
 
-// monoU：从 .u/skills 加载
-const result = loadSkills({ agentDir: path.join(process.cwd(), ".u") });
+// ParameciumU：从 .first_paramecium/skills 加载
+const result = loadSkills({ agentDir: path.join(process.cwd(), ".first_paramecium") });
 const promptFragment = formatSkillsForPrompt(result.skills);
 
 // 或仅从单个目录加载
-const fromDir = loadSkillsFromDir({ dir: path.join(process.cwd(), ".u", "skills"), source: "user" });
+const fromDir = loadSkillsFromDir({ dir: path.join(process.cwd(), ".first_paramecium", "skills"), source: "user" });
 ```
 
 ---
@@ -106,7 +106,7 @@ const fromDir = loadSkillsFromDir({ dir: path.join(process.cwd(), ".u", "skills"
 - 调度类型：`at`（一次性 ISO 时间）、`every`（间隔 ms）、`cron`（cron 表达式 + 可选时区）
 - `runScheduler(storePath, options?)`：常驻循环，到点可调用 `onJobDue(job)` 执行自定义逻辑（如跑 agent）
 
-**存储**：JSON 文件，默认 `./.u/cron/jobs.json`，可通过 `CRON_STORE` 覆盖。
+**存储**：JSON 文件，默认 `./.first_paramecium/cron/jobs.json`，可通过 `CRON_STORE` 覆盖。
 
 **用法**：
 
@@ -118,7 +118,7 @@ const jobs = await store.list({ includeDisabled: true });
 // 常驻：runScheduler(storePath, { onJobDue: async (job) => { ... } });
 ```
 
-**CLI**：`npx monou-cron` 或根目录 `npm run cron:daemon` 启动常驻调度器。
+**CLI**：`npx monou-cron` 或根目录 `npm run cron:daemon` 可启动**独立**常驻调度器（仅推进任务时间戳，不执行 agent turn）。通常不需要单独运行：**apps/agent** 进程内已内嵌 runScheduler + onJobDue，到点执行 runTurn。
 
 ---
 
@@ -182,17 +182,17 @@ const result = await runAgentTurnWithTools(state, config, streamFn ?? fallback, 
 **主要导出**：
 
 - `U_BASE_AGENT_ID`、`U_BASE_SKILL_NAMES`
-- `getAgentDir(rootDir?)`：默认 `./.u`
+- `getAgentDir(rootDir?)`：默认 `./.first_paramecium`
 - `ensureAgentDir(options?)`：若目录不存在则从包内 template 复制；可选 `rootDir`、`agentDir`、`forceSync`
 - `getAgentSkillDirs(rootOrAgentDir?, opts?)`：返回必备技能目录绝对路径
 
-**用法**：被 @monou/agent-from-dir 与 apps 使用，用于定位或初始化 .u 同构目录。
+**用法**：被 @monou/agent-from-dir 与 apps 使用，用于定位或初始化 .first_paramecium 同构目录。
 
 ---
 
 ## 8. @monou/agent-from-dir
 
-**职责**：从 agent 目录（.u 或任意同构目录）加载并构建 session/context；运行逻辑在 app（gateway / TUI / scripts）侧。
+**职责**：从 agent 目录（.first_paramecium 或任意同构目录）加载并构建 session/context；运行逻辑在 app（gateway / TUI / scripts）侧。
 
 **依赖**：@monou/agent-template、@monou/agent-sdk、@monou/agent-core、@monou/llm-provider。
 
@@ -204,7 +204,7 @@ const result = await runAgentTurnWithTools(state, config, streamFn ?? fallback, 
 - `runMemoryFlushTurn`、`MEMORY_FLUSH_DEFAULT_PROMPT`
 - `loadSkillScriptTools`、`createSkillScriptExecutor`；类型 `AgentSession`、`GatewayInvoke`、`ScriptToolEntry`
 
-**用法**：apps/agent、TUI、Gateway 只读能力（如 skills.status）等，均通过此包从 .u 或指定目录加载。
+**用法**：apps/agent、TUI、Gateway 只读能力（如 skills.status）等，均通过此包从 .first_paramecium 或指定目录加载。
 
 ```ts
 import { buildSessionFromU, createAgentContextFromU } from "@monou/agent-from-dir";
@@ -226,7 +226,7 @@ const { state, config, streamFn } = createAgentContextFromU(session);
 
 ## 10. @monou/gateway
 
-**职责**：Gateway 协议类型与客户端（callGateway），供 CLI/TUI/Control UI 等调用 monoU Gateway。与「谁在跑服务端」解耦。
+**职责**：Gateway 协议类型与客户端（callGateway），供 CLI/TUI/Control UI 等调用 ParameciumU Gateway。与「谁在跑服务端」解耦。
 
 **依赖**：无（使用 ws）。
 
@@ -255,7 +255,7 @@ shared → agent-core → skills → cron → agent-sdk → agent-template → a
 
 ## 下一步
 
-- 整体架构：[architecture](../architecture/architecture.md)
-- Agent 目录与技能加载：[agent-directory](../architecture/agent-directory.md)
+- 整体架构：[architecture](../concepts/architecture.md)
+- Agent 目录与技能加载：[agent-directory](../concepts/agent-directory.md)
 - 应用运行方式：[apps](./apps.md)
 - 编码技能设计：[code-skill-design](../reference/code-skill-design.md)
