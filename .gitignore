@@ -21,4 +21,5 @@ docs/.vitepress/cache
 openclaw/
 pi-mono/
 opencode/
-skills/
+# 仅忽略仓库根目录的 skills/（参考项目），不忽略 .first_paramecium/skills 与 agents/*/skills
+/skills/
