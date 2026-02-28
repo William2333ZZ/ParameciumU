@@ -1,97 +1,62 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-  title: "ParameciumU",
-  description: "Sovereign agent platform: agent = standardized directory. Run Gateway and Agent on your machine; connect via Control UI, Feishu, or TUI.",
+  title: "ParameciumU 文档",
+  description: "以「智能体标准化定义（基于文件夹）」为核心的主权智能体平台；你是一只草履虫，可吸收营养进化、可复制繁殖。",
   base: "/ParameciumU/",
   srcDir: ".",
   outDir: "./.vitepress/dist",
   ignoreDeadLinks: true,
   themeConfig: {
     nav: [
-      { text: "Docs", link: "/" },
-      { text: "Getting started", link: "/start/getting-started" },
-      { text: "Architecture", link: "/concepts/architecture" },
-      { text: "Reference", link: "/reference/env" },
-      { text: "中文", link: "/zh/" },
+      { text: "首页", link: "/" },
+      { text: "快速开始", link: "/start/getting-started" },
+      { text: "架构", link: "/concepts/architecture" },
+      { text: "自动化", link: "/automation/cron" },
     ],
     sidebar: [
       {
-        text: "Introduction",
+        text: "入门",
         items: [
-          { text: "Overview", link: "/" },
-          { text: "Getting started", link: "/start/getting-started" },
+          { text: "文档首页", link: "/" },
+          { text: "快速开始", link: "/start/getting-started" },
         ],
       },
       {
-        text: "Concepts",
+        text: "产品使用",
         items: [
-          { text: "Architecture", link: "/concepts/architecture" },
-          { text: "Agent directory", link: "/concepts/agent-directory" },
-          { text: "Gateway", link: "/concepts/gateway" },
-          { text: "Cron", link: "/concepts/cron" },
+          { text: "使用指南", link: "/start/getting-started" },
+          { text: "应用说明 (apps)", link: "/runtime/apps" },
         ],
       },
       {
-        text: "Runtime",
-        items: [{ text: "Apps", link: "/runtime/apps" }],
+        text: "设计",
+        items: [
+          { text: "产品叙事与命名愿景", link: "/concepts/paramecium-vision" },
+          { text: "产品定位与能力规划", link: "/concepts/vision-and-roadmap" },
+          { text: "整体架构", link: "/concepts/architecture" },
+          { text: "Agent 目录约定", link: "/concepts/agent-directory" },
+          { text: "Gateway 概述", link: "/gateway/index" },
+          { text: "Gateway 协议与实现", link: "/gateway/protocol" },
+          { text: "定时任务（Cron）", link: "/automation/cron" },
+          { text: "Heartbeat", link: "/automation/heartbeat" },
+          { text: "Control UI 设计", link: "/control-ui/design" },
+          { text: "节点能力接入", link: "/control-ui/node-capabilities" },
+          { text: "Code Engineer 与 code_skill", link: "/reference/code-skill-design" },
+          { text: "Browser Node 设计", link: "/reference/browser-node-design" },
+        ],
       },
       {
-        text: "Reference",
+        text: "运行",
         items: [
-          { text: "Environment variables", link: "/reference/env" },
-          { text: "Gateway protocol", link: "/reference/gateway-protocol" },
-          { text: "Cron types", link: "/reference/cron-types" },
+          { text: "模块说明 (packages)", link: "/runtime/packages" },
+          { text: "Agent 运行机制", link: "/runtime/agent-running" },
         ],
+      },
+      {
+        text: "维护",
+        items: [{ text: "部署文档站", link: "/deploy-docs-site" }],
       },
     ],
-    locales: {
-      root: {
-        label: "English",
-        lang: "en",
-      },
-      zh: {
-        label: "中文",
-        lang: "zh-CN",
-        link: "/zh/",
-        nav: [
-          { text: "文档", link: "/zh/" },
-          { text: "快速开始", link: "/zh/start/getting-started" },
-          { text: "架构", link: "/zh/concepts/architecture" },
-          { text: "参考", link: "/zh/reference/env" },
-          { text: "English", link: "/" },
-        ],
-        sidebar: [
-          {
-            text: "介绍",
-            items: [
-              { text: "概览", link: "/zh/" },
-              { text: "快速开始", link: "/zh/start/getting-started" },
-            ],
-          },
-          {
-            text: "概念",
-            items: [
-              { text: "架构", link: "/zh/concepts/architecture" },
-              { text: "智能体目录", link: "/zh/concepts/agent-directory" },
-              { text: "Gateway", link: "/zh/concepts/gateway" },
-              { text: "Cron", link: "/zh/concepts/cron" },
-            ],
-          },
-          {
-            text: "运行",
-            items: [{ text: "应用", link: "/zh/runtime/apps" }],
-          },
-          {
-            text: "参考",
-            items: [
-              { text: "环境变量", link: "/zh/reference/env" },
-              { text: "Gateway 协议", link: "/zh/reference/gateway-protocol" },
-              { text: "Cron 类型", link: "/zh/reference/cron-types" },
-            ],
-          },
-        ],
-      },
-    },
   },
 });
