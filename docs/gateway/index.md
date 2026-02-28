@@ -42,5 +42,6 @@ GATEWAY_PORT=18790 npm run gateway
 ## 下一步
 
 - [Gateway 协议与实现](./protocol.md) — 连接、RPC、会话、事件与扩展
+- [多智能体互动](./multi-agent.md) — 当前智能体发现其他智能体并委托/转交与用户互动
 - [应用说明 (apps)](../runtime/apps.md) — gateway 环境变量与数据目录
 - [整体架构](../concepts/architecture.md) — 四层抽象与控制面边界

@@ -15,6 +15,7 @@ Query the monoU Gateway that this agent is connected to: list linked agents, nod
 | **gateway_nodes_list** | List nodes and connectors (topology): each node has deviceId and its agents; connectors are L1 entries (e.g. Feishu). |
 | **gateway_cron_list** | List cron/scheduled tasks for an agent. Pass optional `agentId` (default .u). Returns jobs with name, schedule, nextRunAtMs, enabled. |
 | **gateway_skills_status** | Get skills/capabilities of an agent. Pass optional `agentId` (default .u). Returns skill names and summaries (what the agent can do). |
+| **gateway_agent_send_to_session** | 委托：把一条消息发到指定 Agent 的 session，由该 Agent 在该 session 内直接回复（直接对话）。必填 `targetAgentId`、`message`；可选 `sessionKey`（不传则用对方主 session）。定时任务与工具由对方用自己的 cron/技能完成。 |
 
 ## When to use
 
@@ -22,6 +23,7 @@ Query the monoU Gateway that this agent is connected to: list linked agents, nod
 - **"每个 agent 能做什么？" / "xxx 有什么能力？"** → `gateway_agents_list` then `gateway_skills_status(agentId)` for each, or one agent.
 - **"定时任务有哪些？" / "xxx 的 cron 是什么？"** → `gateway_cron_list(agentId)`
 - **"拓扑/节点有哪些？" / "飞书接入了吗？"** → `gateway_nodes_list`
+- **委托 / 直接对话**：「让某 agent 做某事」→ 先 `gateway_agents_list` 确认对方在线，再 `gateway_agent_send_to_session(targetAgentId, message)` 把话发到对方 session；对方在自己 session 里回复，定时任务与工具由对方用自己的 cron/技能完成。
 - **Orchestration**: Before delegating or suggesting "让某 agent 执行某任务", use these tools to see who is connected and what they can do.
 - **Troubleshooting**: "为什么收不到推送？" → check connectors in `gateway_nodes_list`; "某 agent 的定时有没有跑？" → `gateway_cron_list(agentId)`.
 

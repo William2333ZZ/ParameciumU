@@ -3,10 +3,12 @@ import { getReadKey, getStoredLastRead, setStoredLastRead } from "./chat-read-st
 import { ChatPanel } from "./panels/ChatPanel";
 import { ChatWelcome } from "./panels/ChatWelcome";
 import { ConversationListPanel } from "./panels/ConversationListPanel";
+import { CreateGroupPanel } from "./panels/CreateGroupPanel";
 import { ContactsPanel } from "./panels/ContactsPanel";
+import { CapabilitiesPanel } from "./panels/CapabilitiesPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
 
-export type TabId = "chat" | "contacts" | "settings";
+export type TabId = "chat" | "contacts" | "capabilities" | "settings";
 
 export type OpenChatPayload = { agentId: string; sessionKey?: string } | null;
 
@@ -16,7 +18,8 @@ type Props = {
 
 const NAV: { id: TabId; label: string }[] = [
   { id: "chat", label: "消息" },
-  { id: "contacts", label: "通讯录" },
+  { id: "contacts", label: "Agent 通讯录" },
+  { id: "capabilities", label: "能力通讯录" },
   { id: "settings", label: "设置" },
 ];
 
@@ -24,6 +27,9 @@ export function MainView({ onDisconnect }: Props) {
   const [tab, setTab] = useState<TabId>("chat");
   const [selectedConversation, setSelectedConversation] = useState<OpenChatPayload>(null);
   const [lastReadMap, setLastReadMap] = useState<Record<string, number>>(getStoredLastRead);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  /** 创建群聊后递增，让左侧会话列表重新拉取，新群出现在「群聊」里 */
+  const [refreshListTrigger, setRefreshListTrigger] = useState(0);
 
   const openChat = useCallback((agentId: string, sessionKey?: string) => {
     setSelectedConversation({ agentId, sessionKey });
@@ -80,13 +86,25 @@ export function MainView({ onDisconnect }: Props) {
               lastReadMap={lastReadMap}
               onOpenChat={openChat}
               onNewGroup={() => {
-                setSelectedConversation({ agentId: ".u", sessionKey: `agent:.u:group-${Date.now()}` });
                 setTab("chat");
+                setShowCreateGroup(true);
               }}
+              refreshTrigger={refreshListTrigger}
             />
           </div>
           <main className="main-content main-content-chat">
-            {hasConversation ? (
+            {showCreateGroup ? (
+              <div className="main-content-panel main-content-panel--active chat-view-single">
+                <CreateGroupPanel
+                  onCreated={(leadAgentId, sessionKey) => {
+                    setShowCreateGroup(false);
+                    setRefreshListTrigger((t) => t + 1);
+                    openChat(leadAgentId, sessionKey);
+                  }}
+                  onCancel={() => setShowCreateGroup(false)}
+                />
+              </div>
+            ) : hasConversation ? (
               <div className="main-content-panel main-content-panel--active chat-view-single">
                 <ChatPanel
                   key={`${selectedConversation.agentId}-${selectedConversation.sessionKey ?? "main"}`}
@@ -98,9 +116,7 @@ export function MainView({ onDisconnect }: Props) {
             ) : (
               <div className="main-content-panel main-content-panel--active chat-view-single">
                 <ChatWelcome
-                  onNewGroup={() => {
-                    setSelectedConversation({ agentId: ".u", sessionKey: `agent:.u:group-${Date.now()}` });
-                  }}
+                  onNewGroup={() => setShowCreateGroup(true)}
                 />
               </div>
             )}
@@ -110,6 +126,9 @@ export function MainView({ onDisconnect }: Props) {
         <main className="main-content main-content-full">
           <div className={`main-content-panel ${tab === "contacts" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "contacts"}>
             <ContactsPanel onOpenChat={openChat} />
+          </div>
+          <div className={`main-content-panel ${tab === "capabilities" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "capabilities"}>
+            <CapabilitiesPanel />
           </div>
           <div className={`main-content-panel ${tab === "settings" ? "main-content-panel--active" : ""}`} aria-hidden={tab !== "settings"}>
             <SettingsPanel onDisconnect={onDisconnect} />

@@ -240,6 +240,118 @@ a {
   font-weight: 600;
 }
 
+.chat-group-title {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.chat-group-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.chat-group-member-tag {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+.chat-group-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.chat-group-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-group-title-wrap .chat-group-title {
+  margin-bottom: 0.35rem;
+}
+
+.chat-invite-btn {
+  flex-shrink: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+.chat-invite-btn:hover {
+  background: var(--border);
+  color: var(--accent);
+}
+
+.invite-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.invite-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  min-width: 280px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow: auto;
+}
+.invite-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+.invite-modal-close {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--muted);
+}
+.invite-modal-close:hover {
+  color: var(--text);
+}
+.invite-modal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.invite-modal-list button {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+.invite-modal-list button:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--accent);
+}
+
 .chat-messages {
   flex: 1;
   min-height: 0;
@@ -266,7 +378,12 @@ a {
 .chat-msg.agent {
   align-self: flex-start;
   background: var(--surface);
-  border: 1px solid var(--border);
+}
+.chat-msg-sender {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+  font-weight: 500;
 }
 
 .chat-msg-content {
@@ -1026,6 +1143,12 @@ a {
   flex-shrink: 0;
 }
 
+.conversation-list-section-groups {
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
 .conversation-list-section-title {
   font-size: 0.75rem;
   font-weight: 600;
@@ -1209,6 +1332,152 @@ a {
 }
 
 .chat-welcome-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* ========== 创建群聊（微信式选成员）========== */
+.create-group-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: 0;
+}
+
+.create-group-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.create-group-back {
+  padding: 0.25rem 0.5rem;
+  font-size: 1.25rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.create-group-back:hover {
+  color: var(--accent);
+}
+
+.create-group-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.create-group-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.create-group-field {
+  margin-bottom: 1rem;
+}
+
+.create-group-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.create-group-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.create-group-input::placeholder {
+  color: var(--muted);
+}
+
+.create-group-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem 0;
+}
+
+.create-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.create-group-list-item {
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.create-group-check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+.create-group-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.create-group-agent-id {
+  font-size: 0.9rem;
+}
+
+.create-group-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.create-group-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.create-group-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-group-btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.create-group-btn-secondary:hover {
+  border-color: var(--muted);
+}
+
+.create-group-btn-primary {
+  background: var(--accent);
+  border: none;
+  color: var(--bg);
+}
+
+.create-group-btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
@@ -1506,6 +1775,113 @@ a {
 .contacts-cron-item .run-btn:hover,
 .contacts-panel .run-btn:hover {
   background: var(--accent-hover);
+}
+
+/* ========== 能力通讯录 ========== */
+.capabilities-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.capabilities-list-column {
+  width: 240px;
+  min-width: 240px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 0.75rem;
+}
+
+.capabilities-list-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+  padding: 0 1rem;
+}
+
+.capabilities-by-node {
+  flex: 1;
+  overflow: auto;
+  padding: 0 0 0.5rem 0;
+}
+
+.capabilities-node-group {
+  margin-bottom: 0.75rem;
+}
+
+.capabilities-node-group:last-child {
+  margin-bottom: 0;
+}
+
+.capabilities-node-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 0.35rem 0;
+  padding: 0 1rem;
+}
+
+.capabilities-type-empty {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0;
+  padding: 0.25rem 1rem;
+}
+
+.capabilities-cap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.25rem;
+}
+
+.capabilities-cap-item {
+  margin: 0;
+}
+
+.capabilities-cap-btn {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.capabilities-cap-btn:hover {
+  background: var(--bg);
+}
+
+.capabilities-cap-btn.active {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--accent);
+}
+
+.capabilities-detail-column {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.capabilities-detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .main-content {

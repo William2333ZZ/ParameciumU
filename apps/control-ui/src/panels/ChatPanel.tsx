@@ -1,8 +1,18 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { gatewayClient } from "../gateway-client";
-import type { SessionPreview } from "../types";
+import type { NodeItem, SessionPreview } from "../types";
+
+type NodeListPayload = { nodes?: NodeItem[] };
+
+function collectAgentIds(nodes: NodeItem[]): string[] {
+  const set = new Set<string>();
+  for (const n of nodes) {
+    for (const a of n.agents ?? []) set.add(a.agentId);
+  }
+  return Array.from(set).sort();
+}
 
 /** 对话中 Markdown 支持图像模态：data URL 与 /api/screenshots/ 文件地址均可渲染 */
 const markdownComponents = {
@@ -36,7 +46,7 @@ type ToolResultMessage = { role: "toolResult"; text: string; toolCallId?: string
 
 type ChatMessage =
   | { role: "user"; text: string }
-  | { role: "agent"; text: string; toolCalls?: ToolCall[] }
+  | { role: "agent"; text: string; toolCalls?: ToolCall[]; senderAgentId?: string }
   | ToolResultMessage;
 
 type Props = {
@@ -47,6 +57,13 @@ type Props = {
 
 function sessionKeyPrefix(agentId: string): string {
   return `agent:${agentId}:`;
+}
+
+/** 是否为群聊会话（sessionKey 含 :group- 或 sessions 中 sessionType=group） */
+function isGroupSessionKey(sessionKey: string, sessions: SessionPreview[]): boolean {
+  if (sessionKey.includes(":group-")) return true;
+  const s = sessions.find((x) => x.key === sessionKey);
+  return s?.sessionType === "group" || false;
 }
 
 function sessionLabel(s: SessionPreview, prefix: string): string {
@@ -67,7 +84,7 @@ type DisplayBlock =
   | { kind: "user"; msg: ChatMessage }
   | { kind: "agent"; msg: ChatMessage }
   | { kind: "toolResult"; msg: ChatMessage }
-  | { kind: "toolGroup"; text: string; toolCalls: ToolCall[]; results: ToolResultMessage[] };
+  | { kind: "toolGroup"; text: string; toolCalls: ToolCall[]; results: ToolResultMessage[]; senderAgentId?: string };
 
 function buildDisplayBlocks(messages: ChatMessage[]): DisplayBlock[] {
   const blocks: DisplayBlock[] = [];
@@ -95,6 +112,7 @@ function buildDisplayBlocks(messages: ChatMessage[]): DisplayBlock[] {
         text: msg.text ?? "",
         toolCalls: msg.toolCalls,
         results,
+        ...(msg.senderAgentId && { senderAgentId: msg.senderAgentId }),
       });
       i += 1 + results.length;
       continue;
@@ -103,6 +121,78 @@ function buildDisplayBlocks(messages: ChatMessage[]): DisplayBlock[] {
     i += 1;
   }
   return blocks;
+}
+
+/** 群聊邀请成员弹层：从 node.list 选未在群内的 agent，sessions.patch 追加 participantAgentIds */
+function InviteToGroupModal({
+  sessionKey,
+  currentMemberIds,
+  onDone,
+  onCancel,
+}: {
+  sessionKey: string;
+  currentMemberIds: string[];
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [nodes, setNodes] = useState<NodeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const memberSet = useMemo(() => new Set(currentMemberIds), [currentMemberIds]);
+  const allIds = useMemo(() => collectAgentIds(nodes), [nodes]);
+  const inviteCandidates = useMemo(() => allIds.filter((id) => !memberSet.has(id)), [allIds, memberSet]);
+
+  useEffect(() => {
+    setErr(null);
+    setLoading(true);
+    gatewayClient
+      .request<NodeListPayload>("node.list")
+      .then((res) => {
+        const payload = res.ok && res.payload ? (res.payload as NodeListPayload) : {};
+        setNodes(Array.isArray(payload.nodes) ? payload.nodes : []);
+      })
+      .catch((e) => setErr((e as Error).message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const invite = (agentId: string) => {
+    setInviting(true);
+    const nextParticipants = [...currentMemberIds, agentId];
+    gatewayClient
+      .request("sessions.patch", { sessionKey, patch: { participantAgentIds: nextParticipants } })
+      .then((res) => {
+        if (res.ok) onDone();
+        else setErr((res as { error?: { message?: string } }).error?.message ?? "邀请失败");
+      })
+      .catch((e) => setErr((e as Error).message))
+      .finally(() => setInviting(false));
+  };
+
+  return (
+    <div className="invite-modal-overlay" role="dialog" aria-label="邀请成员进群">
+      <div className="invite-modal">
+        <div className="invite-modal-header">
+          <span>邀请成员进群</span>
+          <button type="button" className="invite-modal-close" onClick={onCancel} aria-label="关闭">×</button>
+        </div>
+        {loading && <p className="muted">加载成员列表…</p>}
+        {err && <p className="error">{err}</p>}
+        {!loading && inviteCandidates.length === 0 && (
+          <p className="muted">当前在线的 agent 都已在本群内</p>
+        )}
+        {!loading && inviteCandidates.length > 0 && (
+          <ul className="invite-modal-list">
+            {inviteCandidates.map((id) => (
+              <li key={id}>
+                <button type="button" disabled={inviting} onClick={() => invite(id)}>{id}</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ToolCard({
@@ -172,6 +262,11 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
     if (msg.role !== "agent") return null;
     return (
       <div className="chat-msg agent">
+        {msg.senderAgentId && (
+          <div className="chat-msg-sender" aria-label={`发送者: ${msg.senderAgentId}`}>
+            {msg.senderAgentId}
+          </div>
+        )}
         <div className="chat-msg-content">
           {msg.text ? (
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text}</ReactMarkdown>
@@ -182,11 +277,16 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
       </div>
     );
   }
-  const { text, toolCalls, results } = block;
+  const { text, toolCalls, results, senderAgentId } = block;
   return (
     <div className="tool-group">
       {text.trim() && (
         <div className="chat-msg agent">
+          {senderAgentId && (
+            <div className="chat-msg-sender" aria-label={`发送者: ${senderAgentId}`}>
+              {senderAgentId}
+            </div>
+          )}
           <div className="chat-msg-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{text}</ReactMarkdown>
           </div>
@@ -205,7 +305,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   const [agentId, setAgentId] = useState(initialAgentId);
   const [sessions, setSessions] = useState<SessionPreview[]>([]);
   const [sessionKey, setSessionKey] = useState<string>(
-    () => initialSessionKey || `agent:${initialAgentId || ".u"}:main`
+    () => initialSessionKey || `agent:${initialAgentId || "default"}:main`,
   );
   const [isNewSession, setIsNewSession] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -231,9 +331,13 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 当前消息条数，run.done 后 loadHistory 返回时只有不少于当前条数才应用，避免用旧数据覆盖刚追加的回复 */
   const messageCountRef = useRef(0);
+  const isGroup = isGroupSessionKey(sessionKey, sessions);
   const prefix = sessionKeyPrefix(agentId);
   const mainSessionKey = `agent:${agentId}:main`;
-  const agentSessions = sessions.filter((s) => s.key.startsWith(prefix));
+  /** 单聊会话列表：只含该 agent 下的非群聊 session，群聊只出现在左侧「群聊」区块 */
+  const agentSessions = sessions.filter(
+    (s) => s.key.startsWith(prefix) && s.sessionType !== "group" && !s.key.includes(":group-"),
+  );
   const hasMain = agentSessions.some((s) => s.key === mainSessionKey);
   const hasCurrentInList = agentSessions.some((s) => s.key === sessionKey);
   // 当前选中的会话若不在服务端列表里（例如刚发完消息尚未返回）也保留在列表中，避免「会话消失」
@@ -244,11 +348,18 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     !hasCurrentInList
       ? [{ key: sessionKey, displayName: isNewSession ? "新会话" : (sessionKey.split(":").pop() ?? "会话"), sessionId: "" } as SessionPreview]
       : [];
-  const sessionListItems = [
-    ...(hasMain ? [] : [{ key: mainSessionKey, displayName: "main", sessionId: "" } as SessionPreview]),
-    ...currentSessionPlaceholder,
-    ...agentSessions,
-  ];
+  const sessionListItems = isGroup
+    ? [] // 群聊不展示单聊会话列表
+    : [
+        ...(hasMain ? [] : [{ key: mainSessionKey, displayName: "main", sessionId: "" } as SessionPreview]),
+        ...currentSessionPlaceholder,
+        ...agentSessions,
+      ];
+
+  const groupSession = isGroup ? sessions.find((s) => s.key === sessionKey) : null;
+  const groupMembers = groupSession?.participantAgentIds ?? [];
+  const groupDisplayName = groupSession?.displayName || "群聊";
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const loadSessions = useCallback(() => {
     gatewayClient
@@ -261,6 +372,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
 
   useEffect(() => {
     if (isNewSession) return;
+    if (sessionKey?.includes(":group-")) return;
     const main = `agent:${agentId}:main`;
     if (!sessionKey || !sessionKey.startsWith(`agent:${agentId}:`)) {
       setSessionKey(main);
@@ -286,6 +398,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
             toolCalls?: ToolCall[];
             toolCallId?: string;
             isError?: boolean;
+            senderAgentId?: string;
           }>;
         }>("chat.history", { sessionKey: sk, limit: 50 })
         .then((res) => {
@@ -308,6 +421,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
                   role: "agent",
                   text,
                   ...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
+                  ...(m.senderAgentId && { senderAgentId: m.senderAgentId }),
                 };
               });
             const forceReplace = opts?.forceReplace === true;
@@ -338,7 +452,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   /** 仅当从外部打开某会话时（props 变化）加载该会话历史；不依赖 sessionKey state，避免发送/run.done 后误触发 */
   useEffect(() => {
     setAgentId(initialAgentId);
-    const sk = initialSessionKey || `agent:${initialAgentId || ".u"}:main`;
+    const sk = initialSessionKey || `agent:${initialAgentId || "default"}:main`;
     setSessionKey(sk);
     setIsNewSession(false);
     sessionKeyRef.current = sk;
@@ -468,10 +582,15 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
-    const toSend = isNewSession ? `/new\n${text}` : text;
-    // 展示用：去掉 /new、/reset 前缀，避免气泡里出现指令
-    const displayText = text.replace(/^\/(?:new|reset)\s*\n?/i, "").trim() || text;
-    // 新建时优先用 ref（点击新建时已写入），避免 state 未更新仍发到 main
+    const replyAllMatch = /^\/all\s+/i.exec(text);
+    const taskMatch = /^\/task\s+/i.exec(text);
+    const useReplyModeAll = replyAllMatch != null;
+    const useReplyModeTask = taskMatch != null;
+    let messageBody = text;
+    if (useReplyModeAll) messageBody = text.replace(/^\/all\s+/i, "").trim();
+    else if (useReplyModeTask) messageBody = text.replace(/^\/task\s+/i, "").trim();
+    const toSend = isNewSession ? `/new\n${messageBody}` : messageBody;
+    const displayText = messageBody.replace(/^\/(?:new|reset)\s*\n?/i, "").trim() || messageBody;
     const effectiveKey = isNewSession && pendingNewSessionKeyRef.current
       ? pendingNewSessionKeyRef.current
       : sessionKey;
@@ -483,7 +602,74 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     setLoading(true);
     setErr(null);
     setStreamingText("");
+    const isGroupSend = effectiveKey.includes(":group-");
     try {
+      if (isGroupSend) {
+        const sendParams: Record<string, unknown> = { message: toSend, sessionKey: effectiveKey };
+        if (useReplyModeAll) sendParams.replyMode = "all";
+        else if (useReplyModeTask) sendParams.replyMode = "task";
+        const res = await gatewayClient.request<{ text?: string; toolCalls?: ToolCall[]; queued?: boolean; allReplied?: boolean; count?: number; taskDone?: boolean; rounds?: number }>("chat.send", sendParams);
+        if (res.ok && res.payload) {
+          const payload = res.payload as { text?: string; toolCalls?: ToolCall[]; queued?: boolean; allReplied?: boolean; count?: number; taskDone?: boolean; rounds?: number };
+          if (payload.taskDone === true) {
+            setLoading(false);
+            loadHistory(effectiveKey, { forceReplace: true });
+            return;
+          }
+          if (payload.allReplied === true) {
+            setLoading(false);
+            loadHistory(effectiveKey, { forceReplace: true });
+            return;
+          }
+          if (payload.queued === true) {
+            setMessages((m) => [...m, { role: "agent", text: "（已排队，稍候回复）" }]);
+            const sk = effectiveKey;
+            const poll = (n: number) => {
+              if (n <= 0) {
+                setLoading(false);
+                return;
+              }
+              setTimeout(() => {
+                if (sessionKeyRef.current !== sk) {
+                  setLoading(false);
+                  return;
+                }
+                gatewayClient
+                  .request<{ messages?: Array<{ role: string; content?: string; toolCalls?: ToolCall[]; senderAgentId?: string }> }>("chat.history", { sessionKey: sk, limit: 50 })
+                  .then((r) => {
+                    if (sessionKeyRef.current !== sk) return;
+                    if (r.ok && r.payload?.messages && r.payload.messages.length > messageCountRef.current + 2) {
+                      const loaded = (r.payload.messages as Array<{ role: string; content?: string; toolCalls?: ToolCall[]; senderAgentId?: string }>)
+                        .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
+                        .map((m): ChatMessage => {
+                          const t = m.content ?? "";
+                          if (m.role === "user") return { role: "user", text: t };
+                          if (m.role === "toolResult") return { role: "toolResult", text: t };
+                          return { role: "agent", text: t, ...(m.toolCalls?.length && { toolCalls: m.toolCalls }), ...(m.senderAgentId && { senderAgentId: m.senderAgentId }) };
+                        });
+                      setMessages(loaded);
+                    }
+                    setLoading(false);
+                  })
+                  .catch(() => setLoading(false));
+              }, 2000);
+            };
+            poll(5);
+          } else {
+            const replyText = (payload.text ?? "") || "(无文本回复)";
+            setMessages((m) => [
+              ...m,
+              { role: "agent", text: replyText, ...(payload.toolCalls?.length && { toolCalls: payload.toolCalls }) },
+            ]);
+            setLoading(false);
+            loadHistory(effectiveKey, { forceReplace: true });
+          }
+        } else {
+          setErr((res as { error?: { message?: string } }).error?.message ?? "请求失败");
+          setLoading(false);
+        }
+        return;
+      }
       const params: Record<string, unknown> = { message: toSend, agentId };
       if (effectiveKey) params.sessionKey = effectiveKey;
       const res = await gatewayClient.request<{ runId?: string; text?: string }>("agent", params);
@@ -494,7 +680,6 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
           currentRunIdRef.current = String(runId);
           setCurrentRunId(runId);
           if (reply) setStreamingText(reply);
-          // 若 run.done 未收到（如连接/广播问题），2.5s 后拉一次历史并结束「思考」
           if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
           fallbackTimerRef.current = setTimeout(() => {
             fallbackTimerRef.current = null;
@@ -508,7 +693,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
               return;
             }
             gatewayClient
-              .request<{ messages?: Array<{ role: string; content?: string; toolCalls?: ToolCall[] }> }>("chat.history", { sessionKey: sk, limit: 50 })
+              .request<{ messages?: Array<{ role: string; content?: string; toolCalls?: ToolCall[]; senderAgentId?: string }> }>("chat.history", { sessionKey: sk, limit: 50 })
               .then((res) => {
                 if (currentRunIdRef.current === null) return;
                 if (sessionKeyRef.current !== sk) return;
@@ -519,7 +704,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
                     const text = m.content ?? "";
                     if (m.role === "user") return { role: "user", text };
                     if (m.role === "toolResult") return { role: "toolResult", text, isError: (m as { isError?: boolean }).isError };
-                    return { role: "agent", text, ...((m as { toolCalls?: ToolCall[] }).toolCalls?.length && { toolCalls: (m as { toolCalls?: ToolCall[] }).toolCalls }) };
+                    return { role: "agent", text, ...((m as { toolCalls?: ToolCall[] }).toolCalls?.length && { toolCalls: (m as { toolCalls?: ToolCall[] }).toolCalls }), ...(m.senderAgentId && { senderAgentId: m.senderAgentId }) };
                   });
                 currentRunIdRef.current = null;
                 setCurrentRunId(null);
@@ -552,9 +737,8 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
         if (isNewSession) {
           pendingNewSessionKeyRef.current = null;
           setIsNewSession(false);
-          setSessionKey(effectiveKey); // 确保 UI 停留在新建的会话
+          setSessionKey(effectiveKey);
           loadSessions();
-          // 不在此处 loadHistory，避免覆盖刚展示的消息（服务端可能尚未写完 transcript）
         }
       } else {
         setErr(res.error?.message ?? "请求失败");
@@ -570,18 +754,8 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     <div className="chat-view">
       <aside className="chat-sidebar">
         <div className="chat-sidebar-section">
-          <label className="chat-sidebar-label">Agent</label>
-          <input
-            type="text"
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-            placeholder=".u"
-            className="chat-agent-input"
-          />
-        </div>
-        <div className="chat-sidebar-section">
           <div className="chat-sidebar-label-row">
-            <span className="chat-sidebar-label">会话</span>
+            <span className="chat-sidebar-label">{isGroup ? "群聊" : "会话"}</span>
             <span className="chat-sidebar-actions">
               <button
                 type="button"
@@ -592,13 +766,15 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
               >
                 ↻
               </button>
-              <button
-                type="button"
-                className="chat-new-session-btn"
-                onClick={() => handleSelectSession("__new__")}
-              >
-                + 新建
-              </button>
+              {!isGroup && (
+                <button
+                  type="button"
+                  className="chat-new-session-btn"
+                  onClick={() => handleSelectSession("__new__")}
+                >
+                  + 新建
+                </button>
+              )}
             </span>
           </div>
           <ul className="chat-session-list">
@@ -633,7 +809,34 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       <div className="chat-main">
         <div className="chat-area">
           <header className="chat-agent-header" aria-live="polite">
-            与 <strong>{agentId || ".u"}</strong> 对话
+            {isGroup ? (
+              <>
+                <div className="chat-group-header-row">
+                  <div className="chat-group-title-wrap">
+                    <div className="chat-group-title">{groupDisplayName}</div>
+                    {groupMembers.length > 0 && (
+                      <div className="chat-group-members" title={`共 ${groupMembers.length} 人`}>
+                        {groupMembers.map((id) => (
+                          <span key={id} className="chat-group-member-tag">
+                            {id}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="chat-invite-btn"
+                    onClick={() => setShowInviteModal(true)}
+                    title="邀请成员进群"
+                  >
+                    邀请成员
+                  </button>
+                </div>
+              </>
+            ) : (
+              "对话"
+            )}
           </header>
           <div className="chat-messages">
             {historyLoading && <p className="muted">加载历史…</p>}
@@ -669,7 +872,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="输入消息…"
+              placeholder={isGroup ? "输入消息… /all 让所有人回复 /task 发布任务轮转完成" : "输入消息…"}
               disabled={loading}
             />
             {loading ? (
@@ -682,6 +885,17 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
           </form>
         </div>
       </div>
+      {isGroup && showInviteModal && (
+        <InviteToGroupModal
+          sessionKey={sessionKey}
+          currentMemberIds={groupMembers}
+          onDone={() => {
+            setShowInviteModal(false);
+            loadSessions();
+          }}
+          onCancel={() => setShowInviteModal(false)}
+        />
+      )}
     </div>
   );
 }

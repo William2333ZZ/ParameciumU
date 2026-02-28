@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { gatewayClient } from "../gateway-client";
 import type { SessionPreview } from "../types";
 
-/** 从 sessionKey 解析 agentId，格式 agent:.u:s-xxx -> .u */
+/** 从 sessionKey 解析 agentId，格式 agent:xxx:s-xxx -> xxx */
 function agentIdFromKey(key: string): string {
   const parts = key.split(":");
   return parts[1] ?? "";

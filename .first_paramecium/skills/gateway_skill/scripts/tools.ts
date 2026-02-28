@@ -39,6 +39,19 @@ export const tools: AgentTool[] = [
       required: [],
     },
   },
+  {
+    name: "gateway_agent_send_to_session",
+    description: "把一条消息发到指定 Agent 的 session，由该 Agent 在该 session 内直接回复（直接对话）。用于委托：先 gateway_agents_list 查可用 Agent，再发消息到其主 session；定时任务与工具由对方用自己的 cron/技能完成。不传 sessionKey 时用对方主 session（agent:<targetAgentId>:main）。",
+    parameters: {
+      type: "object",
+      properties: {
+        targetAgentId: { type: "string", description: "目标 Agent 的 agentId（必填）" },
+        message: { type: "string", description: "要发送的消息内容（必填）" },
+        sessionKey: { type: "string", description: "目标 sessionKey，不传则用 agent:<targetAgentId>:main" },
+      },
+      required: ["targetAgentId", "message"],
+    },
+  },
 ];
 
 export type GatewayInvoke = (method: string, params: Record<string, unknown>) => Promise<unknown>;
@@ -76,6 +89,22 @@ export async function executeTool(
       const agentId = (args?.agentId as string)?.trim() || ".u";
       const result = await gatewayInvoke("skills.status", { agentId });
       return { content: JSON.stringify(result, null, 2) };
+    }
+    if (name === "gateway_agent_send_to_session") {
+      const targetAgentId = (args?.targetAgentId as string)?.trim();
+      const message = (args?.message as string)?.trim();
+      if (!targetAgentId || !message) {
+        return { content: "gateway_agent_send_to_session 需要 targetAgentId 和 message", isError: true };
+      }
+      const sessionKey =
+        (args?.sessionKey as string)?.trim() || `agent:${targetAgentId}:main`;
+      const result = await gatewayInvoke("chat.send", {
+        agentId: targetAgentId,
+        sessionKey,
+        message,
+      });
+      const payload = result && typeof result === "object" ? result : { result };
+      return { content: JSON.stringify(payload, null, 2) };
     }
     return { content: `Unknown tool: ${name}`, isError: true };
   } catch (e) {

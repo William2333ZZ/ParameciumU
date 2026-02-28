@@ -4,12 +4,10 @@ import type { CronJob } from "../types";
 
 type AgentItem = { agentId: string; deviceId?: string; connId: string; online: boolean };
 
-const DEFAULT_LOCAL_AGENT_ID = ".u";
-
 /** Cron 属于单个 Agent（该 Agent 目录下的 cron/jobs.json）。Gateway 按 agentId 读写对应路径。 */
 export function CronPanel() {
   const [agents, setAgents] = useState<AgentItem[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_LOCAL_AGENT_ID);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -18,12 +16,24 @@ export function CronPanel() {
     gatewayClient
       .request<{ agents: AgentItem[] }>("agents.list")
       .then((res) => {
-        if (res.ok && res.payload?.agents) setAgents(res.payload.agents);
+        if (res.ok && res.payload?.agents) {
+          const list = res.payload.agents;
+          setAgents(list);
+          setSelectedAgentId((prev) => {
+            if (!prev || !list.some((a) => a.agentId === prev)) return list[0]?.agentId ?? "";
+            return prev;
+          });
+        } else setAgents([]);
       })
       .catch(() => setAgents([]));
   }, []);
 
   const loadJobs = useCallback(() => {
+    if (!selectedAgentId) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
     setErr(null);
     setLoading(true);
     gatewayClient
@@ -63,18 +73,18 @@ export function CronPanel() {
           style={{ padding: "0.35rem 0.6rem", fontSize: "0.9rem", minWidth: "140px" }}
         >
           {agents.length === 0 && (
-            <option value={DEFAULT_LOCAL_AGENT_ID}>.u（本机）</option>
+            <option value="">请先连接 Agent</option>
           )}
           {agents.map((a) => (
             <option key={a.agentId} value={a.agentId}>
-              {a.agentId} {a.agentId === DEFAULT_LOCAL_AGENT_ID ? "（本机）" : ""}
+              {a.agentId}
             </option>
           ))}
         </select>
       </div>
 
       <p className="muted" style={{ fontSize: "0.8rem", marginBottom: "0.5rem" }}>
-        以下为 <strong>{selectedAgentId}</strong> 的定时任务（{selectedAgentId === DEFAULT_LOCAL_AGENT_ID ? ".u/cron/jobs.json" : `agents/${selectedAgentId}/cron/jobs.json`}）。
+        以下为 <strong>{selectedAgentId || "—"}</strong> 的定时任务（{selectedAgentId ? `agents/${selectedAgentId}/cron/jobs.json` : "请先选择 Agent"}）。
       </p>
       {loading && <p className="loading">加载中…</p>}
       {err && <p className="error">加载失败: {err}</p>}

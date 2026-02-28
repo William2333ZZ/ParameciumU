@@ -12,15 +12,17 @@ function isOnline(lastHeartbeatAt?: number): boolean {
   return Date.now() - lastHeartbeatAt < ONLINE_THRESHOLD_MS;
 }
 
-/** 从 sessionKey 解析 agentId：agent:.u:s-xxx -> .u；connector:feishu:chat:xxx -> .u */
+/** 从 sessionKey 解析 agentId：agent:xxx:s-xxx -> xxx；群聊 agent:xxx:group-* -> xxx；connector 取首个 participant 或空 */
 function agentIdFromSessionKey(key: string): string {
-  if (key.startsWith("connector:")) return ".u";
+  if (key.startsWith("connector:")) return "";
   const parts = key.split(":");
-  return parts[1] ?? ".u";
+  return parts[1] ?? "";
 }
 
-/** 是否为群聊会话：connector 的 chat 或 channel 含 group */
+/** 是否为群聊会话：sessionType=group、或 key 含 :group-、或 connector 的 chat */
 function isGroupSession(s: SessionPreview): boolean {
+  if (s.sessionType === "group") return true;
+  if (s.key.includes(":group-")) return true;
   if (s.key.startsWith("connector:") && s.key.includes(":chat:")) return true;
   if (s.channel && /group|群/i.test(s.channel)) return true;
   return false;
@@ -40,6 +42,8 @@ type Props = {
   lastReadMap?: Record<string, number>;
   onOpenChat: (agentId: string, sessionKey?: string) => void;
   onNewGroup?: () => void;
+  /** 创建群聊后由父组件递增，触发重新拉取会话列表，新群出现在「群聊」 */
+  refreshTrigger?: number;
 };
 
 export function ConversationListPanel({
@@ -48,6 +52,7 @@ export function ConversationListPanel({
   lastReadMap = {},
   onOpenChat,
   onNewGroup,
+  refreshTrigger,
 }: Props) {
   const [nodes, setNodes] = useState<NodeItem[]>([]);
   const [sessions, setSessions] = useState<SessionPreview[]>([]);
@@ -74,10 +79,10 @@ export function ConversationListPanel({
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshTrigger]);
 
-  /** 按最近聊天排序的列表：智能体（取该 agent 最近会话时间）+ 群聊会话，与微信一致 */
-  const recentList = useMemo(() => {
+  /** 消息（单聊）：仅展示 Gateway 当前在线的 agent，按该 agent 最近会话时间排序 */
+  const messageList = useMemo(() => {
     const agentMap = new Map<string, { lastHeartbeatAt?: number; latestUpdatedAt: number }>();
     for (const n of nodes) {
       for (const a of n.agents ?? []) {
@@ -91,26 +96,29 @@ export function ConversationListPanel({
       }
     }
     for (const s of sessions) {
-      if (!s.key.startsWith("agent:")) continue;
+      if (!s.key.startsWith("agent:") || isGroupSession(s)) continue;
       const agentId = agentIdFromSessionKey(s.key);
       const u = s.updatedAt ?? 0;
       const cur = agentMap.get(agentId);
       if (cur) {
         if (u > cur.latestUpdatedAt) cur.latestUpdatedAt = u;
-      } else {
-        agentMap.set(agentId, { latestUpdatedAt: u });
       }
     }
-    const items: ListItem[] = [];
+    const items: Extract<ListItem, { type: "agent" }>[] = [];
     for (const [agentId, v] of agentMap) {
       items.push({ type: "agent", agentId, lastHeartbeatAt: v.lastHeartbeatAt, sortAt: v.latestUpdatedAt });
-    }
-    for (const s of sessions.filter(isGroupSession)) {
-      items.push({ type: "group", session: s, sortAt: s.updatedAt ?? 0 });
     }
     items.sort((a, b) => b.sortAt - a.sortAt);
     return items;
   }, [nodes, sessions]);
+
+  /** 群聊：sessionType=group 或 key 含 :group-，按更新时间排序 */
+  const groupList = useMemo(() => {
+    return sessions
+      .filter(isGroupSession)
+      .map((s) => ({ session: s, sortAt: s.updatedAt ?? 0 }))
+      .sort((a, b) => b.sortAt - a.sortAt);
+  }, [sessions]);
 
   if (loading) {
     return (
@@ -135,44 +143,60 @@ export function ConversationListPanel({
 
   return (
     <div className="conversation-list-panel">
-      <section className="conversation-list-section">
+      {/* 消息（单聊） */}
+      <section className="conversation-list-section conversation-list-section-messages">
         <div className="conversation-list-section-head">
-          <h3 className="conversation-list-section-title">最近聊天</h3>
+          <h3 className="conversation-list-section-title">消息</h3>
+        </div>
+        {messageList.length === 0 ? (
+          <p className="conversation-list-empty">暂无私聊</p>
+        ) : (
+          <ul className="conversation-list">
+            {messageList.map((item) => {
+              const readKey = getReadKeyForItem(item.agentId, undefined);
+              const unread = item.sortAt > (lastReadMap[readKey] ?? 0);
+              return (
+                <li key={`agent-${item.agentId}`} className="conversation-list-item">
+                  <button
+                    type="button"
+                    className={`conversation-list-btn ${isSelected(item.agentId, undefined) ? "active" : ""}`}
+                    onClick={() => onOpenChat(item.agentId)}
+                  >
+                    <span className={`conversation-list-dot ${isOnline(item.lastHeartbeatAt) ? "online" : ""}`} title={isOnline(item.lastHeartbeatAt) ? "在线" : "离线"} />
+                    {unread && <span className="conversation-list-unread" title="未读" />}
+                    <span className="conversation-list-label">{item.agentId}</span>
+                    {item.sortAt > 0 && (
+                      <span className="conversation-list-meta">
+                        {new Date(item.sortAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* 群聊 */}
+      <section className="conversation-list-section conversation-list-section-groups">
+        <div className="conversation-list-section-head">
+          <h3 className="conversation-list-section-title">群聊</h3>
           {onNewGroup && (
             <button type="button" className="conversation-list-new-btn" onClick={onNewGroup}>
               + 新建群聊
             </button>
           )}
         </div>
-        {recentList.length === 0 ? (
-          <p className="conversation-list-empty">暂无聊天</p>
+        {groupList.length === 0 ? (
+          <p className="conversation-list-empty">暂无群聊</p>
         ) : (
           <ul className="conversation-list">
-            {recentList.map((item) => {
-              if (item.type === "agent") {
-                const readKey = getReadKeyForItem(item.agentId, undefined);
-                const unread = item.sortAt > (lastReadMap[readKey] ?? 0);
-                return (
-                  <li key={`agent-${item.agentId}`} className="conversation-list-item">
-                    <button
-                      type="button"
-                      className={`conversation-list-btn ${isSelected(item.agentId, undefined) ? "active" : ""}`}
-                      onClick={() => onOpenChat(item.agentId)}
-                    >
-                      <span className={`conversation-list-dot ${isOnline(item.lastHeartbeatAt) ? "online" : ""}`} title={isOnline(item.lastHeartbeatAt) ? "在线" : "离线"} />
-                      {unread && <span className="conversation-list-unread" title="未读" />}
-                      <span className="conversation-list-label">{item.agentId}</span>
-                      {item.sortAt > 0 && (
-                        <span className="conversation-list-meta">
-                          {new Date(item.sortAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              }
-              const s = item.session;
-              const aid = agentIdFromSessionKey(s.key);
+            {groupList.map(({ session: s }) => {
+              const aid =
+                isGroupSession(s)
+                  ? (s.leadAgentId ?? s.participantAgentIds?.[0] ?? "")
+                  : agentIdFromSessionKey(s.key);
               const readKey = getReadKeyForItem(aid, s.key);
               const unread = (s.updatedAt ?? 0) > (lastReadMap[readKey] ?? 0);
               return (
