@@ -1,5 +1,5 @@
 /**
- * 场景测试：清空 agents/.gateway → 启动 Gateway → 启动 .u → 用 .u 创建 stock_learning → 由新 agent 执行任务（汇报、cron、chat）。
+ * 场景测试：清空 agents/.gateway → 启动 Gateway → 启动 .first_paramecium → 用 .first_paramecium 创建 stock_learning → 由新 agent 执行任务（汇报、cron、chat）。
  *
  * 运行前先 build：npm run build
  * 运行：npx tsx scripts/test-scenario-stock-agent.ts
@@ -110,8 +110,8 @@ async function run() {
   const agentEnv = {
     ...process.env,
     GATEWAY_URL: gwUrl,
-    AGENT_ID: ".u",
-    AGENT_DIR: path.join(ROOT, ".u"),
+    AGENT_ID: ".first_paramecium",
+    AGENT_DIR: path.join(ROOT, ".first_paramecium"),
     ...(process.env.AIHUBMIX_API_KEY && { AIHUBMIX_BASE_URL: aiHub, AIHUBMIX_API_KEY: process.env.AIHUBMIX_API_KEY }),
   };
 
@@ -132,31 +132,31 @@ async function run() {
       timeoutMs: 3000,
     });
     agents = list?.agents ?? [];
-    if (agents.some((a) => a.agentId === ".u")) break;
+    if (agents.some((a) => a.agentId === ".first_paramecium")) break;
     await new Promise((r) => setTimeout(r, 1000));
   }
-  const uSlot = agents.find((a) => a.agentId === ".u");
+  const uSlot = agents.find((a) => a.agentId === ".first_paramecium");
   if (!uSlot) {
-    fail(".u 连接", "agents.list 未发现 .u");
+    fail(".first_paramecium 连接", "agents.list 未发现 .first_paramecium");
     gatewayChild.kill();
     process.exit(1);
   }
-  ok(".u 已连接");
+  ok(".first_paramecium 已连接");
 
   const createMsg = `请用 agent-creator 技能创建智能体。要求：AGENT_ID=${STOCK_AGENT_ID}，GATEWAY_URL=${gwUrl}。在项目根目录执行：AGENT_ID=${STOCK_AGENT_ID} GATEWAY_URL=${gwUrl} ./.first_paramecium/skills/agent-creator/scripts/create-and-connect.sh`;
   const createRes = await callGateway<{ text?: string; toolCalls?: unknown[] }>({
     url: gwUrl,
     method: "agent",
-    params: { message: createMsg, wait: true, agentId: ".u", deviceId: uSlot.deviceId ?? uSlot.agentId },
+    params: { message: createMsg, wait: true, agentId: ".first_paramecium", deviceId: uSlot.deviceId ?? uSlot.agentId },
     timeoutMs: 120000,
   });
   const hadReply = typeof createRes?.text === "string" || (Array.isArray(createRes?.toolCalls) && (createRes?.toolCalls?.length ?? 0) > 0);
-  if (hadReply) ok(".u 执行创建请求有回复");
-  else fail(".u 创建", "应返回 text 或 toolCalls");
+  if (hadReply) ok(".first_paramecium 执行创建请求有回复");
+  else fail(".first_paramecium 创建", "应返回 text 或 toolCalls");
 
   const stockDir = path.join(ROOT, "agents", STOCK_AGENT_ID);
   if (!fs.existsSync(stockDir) || !fs.statSync(stockDir).isDirectory()) {
-    fail("agents/" + STOCK_AGENT_ID, "目录应在 .u 执行脚本后存在");
+    fail("agents/" + STOCK_AGENT_ID, "目录应在 .first_paramecium 执行脚本后存在");
   } else {
     ok("agents/" + STOCK_AGENT_ID + " 已创建");
   }

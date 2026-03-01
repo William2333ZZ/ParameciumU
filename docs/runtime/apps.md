@@ -1,191 +1,192 @@
 ---
-title: "应用说明 (apps)"
-summary: "gateway、agent、control-ui、TUI、feishu-app 等应用的职责、运行方式与环境变量"
+title: "Apps"
+summary: "gateway, agent, control-ui, TUI, feishu-app, sandbox-node, browser-node: roles, how to run, env vars."
 read_when:
-  - 启动或排查各应用时
-  - 配置端口、认证、数据目录时
+  - Starting or debugging an app
+  - Configuring port, auth, or data dirs
 ---
 
-# apps 应用说明
+# Apps
 
-本文档说明 `apps/` 下各可执行应用的职责、运行方式与环境变量。每个应用均可独立 build/run。ParameciumU 协议与实现独立，不依赖 OpenClaw；扩展新 Connector 可参考 gateway 与 feishu-app 实现。
+This doc describes each runnable app under `apps/`: role, how to run, and main env vars. Each app can be built and run independently. The architecture is in [architecture.md](../concepts/architecture.md): Hub (Gateway), Agent, Node (including connector-style nodes like Feishu), Definition, Client.
 
-## 1. gateway（@monou/gateway-app）
+## 1. gateway (@monou/gateway-app)
 
-**职责**：L2 控制面服务端。常驻 WebSocket，提供 health、cron.*、connect、agents、sessions、agent、chat.*、node.*、connector.mapping.* 等 RPC；**不内嵌 agent 执行**，仅将 agent/chat 请求转发给已连接的 agent 进程。
+**Role:** Hub. WebSocket server for health, cron.*, connect, agents, sessions, agent/chat, node.*, connector.mapping.*, connector.message.*. **Does not run agent turns**; forwards to connected agent processes.
 
-**运行**：
+**Run:**
 
 ```bash
-# 从 monorepo 根目录
+# From repo root
 npm run build
 npm run gateway
 
-# 或指定端口
-GATEWAY_PORT=18790 npm run gateway
+# Custom port
+GATEWAY_PORT=9348 npm run gateway
 ```
 
-**环境变量**：
+**Env vars:**
 
-| 变量 | 说明 | 默认 |
-|------|------|------|
-| GATEWAY_PORT | 监听端口 | 9347 |
-| GATEWAY_HOST | 监听地址 | 127.0.0.1 |
-| GATEWAY_DATA_DIR / GATEWAY_STATE_DIR | 数据目录（mappings、sessions） | ./.gateway |
-| CRON_STORE | cron 任务存储路径 | ./.first_paramecium/cron/jobs.json |
-| GATEWAY_TOKEN / GATEWAY_PASSWORD | 认证；任一非空即启用，connect 时必带 | - |
-| GATEWAY_TLS_CERT / GATEWAY_TLS_KEY | TLS 证书与私钥文件路径，启用 wss | - |
+| Var | Purpose | Default |
+|-----|---------|---------|
+| GATEWAY_PORT | Port | 9347 |
+| GATEWAY_HOST | Bind address | 127.0.0.1 |
+| GATEWAY_DATA_DIR / GATEWAY_STATE_DIR | Data dir (mappings, sessions) | ./.gateway |
+| CRON_STORE | Cron store path | ./.first_paramecium/cron/jobs.json |
+| GATEWAY_TOKEN / GATEWAY_PASSWORD | Auth; connect must send token or password if set | — |
+| GATEWAY_TLS_CERT / GATEWAY_TLS_KEY | TLS cert and key paths (wss) | — |
 | SESSION_RESET_MODE | daily \| idle \| none | none |
-| SESSION_RESET_AT_HOUR | daily 时每日重置小时（0–23） | 4 |
-| SESSION_IDLE_MINUTES | idle 时闲置多少分钟过期 | - |
+| SESSION_RESET_AT_HOUR | Hour for daily reset (0–23) | 4 |
+| SESSION_IDLE_MINUTES | Idle minutes before expiry (idle mode) | — |
 
-**数据目录 ./.gateway**：`mappings.json`（Connector 映射）、`sessions/sessions.json`（会话元数据）、`sessions/transcripts/*.json`（会话记录）。
+**Data dir ./.gateway:** `mappings.json`, `sessions/sessions.json`, `sessions/transcripts/*.json`.
 
-执行对话前需**单独启动 agent** 并连接本 Gateway，否则 agent/chat.send 会返回 501。详见 [gateway.md](./gateway.md)。
+Start at least one **agent** and connect it to this Gateway before using agent/chat.send; otherwise you get 501. See [protocol.md](../gateway/protocol.md).
 
 ---
 
-## 2. agent（@monou/agent）
+## 2. agent (@monou/agent)
 
-**职责**：启动 Agent 的 app。连接 Gateway、以 role=agent 注册、接收 node.invoke.request（__agent=true）或 cron 到点派发，用 agent-from-dir 加载目录、执行 runTurn、回传 node.invoke.result 或 connector.message.push。
+**Role:** Agent. Connects to Hub with role=agent, runs runTurn (LLM + tools), in-process cron, heartbeat. Loads one Definition (agent dir) via agent-from-dir.
 
-**运行**：
+**Run:**
 
 ```bash
-# 终端 2（Gateway 已启动，须显式指定 AGENT_DIR、AGENT_ID）
+# Terminal 2 (Gateway already running; set AGENT_DIR and AGENT_ID)
 GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent
 
-# 多 agent 示例
-GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=A_agent AGENT_DIR=./A_agent npm run agent
+# Multiple agents
+GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=research_agent AGENT_DIR=./agents/research_agent npm run agent
 ```
 
-**环境变量**：
+**Env vars:**
 
-| 变量 | 说明 | 必填 |
-|------|------|------|
-| GATEWAY_URL | Gateway WebSocket 地址 | 是 |
-| AGENT_ID | 注册到 Gateway 的 agentId | 是 |
-| AGENT_DIR / AGENT_ROOT_DIR | 与 agents/sidekick 同构的 agent 目录 | 是（无默认） |
-| DEVICE_ID | 设备标识，Gateway 按此聚合 Node | 否，默认 hostname 或 AGENT_ID |
-| GATEWAY_TOKEN / GATEWAY_PASSWORD | 与 Gateway 认证一致时填写 | 否 |
+| Var | Purpose | Required |
+|-----|---------|----------|
+| GATEWAY_URL | Gateway WebSocket URL | Yes |
+| AGENT_ID | agentId registered with Gateway | Yes |
+| AGENT_DIR / AGENT_ROOT_DIR | Agent dir (same shape as .first_paramecium) | Yes |
+| DEVICE_ID | Device id (default hostname or AGENT_ID) | No |
+| GATEWAY_TOKEN / GATEWAY_PASSWORD | Match Gateway auth | No |
 
-**行为**：连接成功后自动确保 cron store 中存在 Heartbeat 任务（默认启用）；可配置 HEARTBEAT_ACTIVE_HOURS_*、HEARTBEAT.md 等。**Cron 调度器内嵌在本进程内**：到点由 runScheduler 的 onJobDue 执行 runTurn，可选 push 到 connector。无需也不应依赖单独运行 `npm run cron:daemon` 来执行定时任务；cron:daemon 为独立进程且不执行 agent turn。
+**Behavior:** After connect, ensures a **Heartbeat** cron job exists and starts the in-process scheduler. Cron runs inside this process (runScheduler + onJobDue); no separate cron:daemon needed for executing turns. See [heartbeat.md](./heartbeat.md), [automation/heartbeat.md](../automation/heartbeat.md).
 
 ---
 
-## 3. control-ui（@monou/control-ui）
+## 3. control-ui (@monou/control-ui)
 
-**职责**：L1 Connector（Web）。连接 Gateway，管理节点/Agent、会话、Cron、设置；与 Agent 对话。
+**Role:** Web client. Connects to Gateway as operator; topology (agents, nodes), sessions, cron, settings, chat.
 
-**运行**：
+**Run:**
 
 ```bash
-# 根目录
 npm run control-ui
-# 或
+# or
 cd apps/control-ui && npm run dev
 ```
 
-浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:9347`）和可选 token/password 连接。需先启动 Gateway 与至少一个 agent。
+Open http://localhost:5173, enter Gateway URL (e.g. ws://127.0.0.1:9347) and optional token/password. Start Gateway and at least one agent first.
 
-**构建**：`npm run control-ui:build`，产物在 `apps/control-ui/dist`。
+**Build:** `npm run control-ui:build` → `apps/control-ui/dist`.
 
-**技术**：TypeScript + React + Vite；WebSocket 直连 Gateway，协议与 @monou/gateway 一致。
+**Stack:** TypeScript, React, Vite; WebSocket to Gateway (@monou/gateway protocol).
 
 ---
 
-## 4. TUI（@monou/u-tui）
+## 4. TUI (@monou/u-tui)
 
-**职责**：L1 Connector（TUI）。终端内对话 + Cron 面板；使用 agent-from-dir 与指定 AGENT_DIR 持久化；需先启动 Gateway 与 agent。首屏为对话，/cron 进入定时任务，q 在 Cron 面板退出。
+**Role:** Terminal client. Chat + cron panel; uses agent-from-dir and AGENT_DIR; needs Gateway and agent running. Main screen: chat; /cron for cron; q to leave cron panel.
 
-**运行**：
+**Run:**
 
 ```bash
 npm run build
 npx u-tui
 ```
 
-**功能**：Cron 面板（.first_paramecium/cron/jobs.json，↑↓ 选择、Enter 菜单）；Chat 面板（连 Gateway、流式输出、会话由 Gateway 管理、/clear、/help、/cron、!cmd 等）。非 TTY 会打印用法并退出。
+**Features:** Cron panel (.first_paramecium/cron/jobs.json, ↑↓ Enter); Chat panel (Gateway, streaming, /clear, /help, /cron, !cmd). Non-TTY prints usage and exits.
 
-**依赖**：@monou/agent-from-dir、@monou/cron、@monou/tui、@monou/agent-sdk、@monou/llm-provider、chalk、dotenv。LLM 使用 OPENAI_API_KEY 或 AIHUBMIX_*。
-
----
-
-## 5. feishu-app（@monou/feishu-app）
-
-**职责**：L1 Connector（飞书）。长连 Gateway 为 Connector，连飞书 WebSocket 收消息 → 调 connector.message.inbound → 把回复发回飞书；支持接收 connector.message.push 主动推送并发到飞书对应会话。
-
-**运行**：配置 .env（见 env.example），然后 `npm run build`、`node dist/index.js` 或 `npm run start`。需 Gateway 已启动，并在 Control UI 或 RPC 中完成 connector 映射。
-
-**环境变量**（见 `apps/feishu-app/env.example`）：`FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`GATEWAY_WS_URL`（Gateway WebSocket 地址）；可选 `FEISHU_DOMAIN`（国际版填 lark）、`CONNECTOR_ID`、`CONNECTOR_DISPLAY_NAME`。
+**Deps:** @monou/agent-from-dir, @monou/cron, @monou/tui, @monou/agent-sdk, @monou/llm-provider. LLM: OPENAI_API_KEY or AIHUBMIX_*.
 
 ---
 
-## 6. sandbox-node（@monou/sandbox-node）
+## 5. feishu-app (@monou/feishu-app)
 
-**职责**：L3 Node（沙箱）。以 role=node 连接 Gateway，声明 capabilities: ["sandbox"]，在隔离 workspace 内执行 system.run / system.which；供 node.invoke 定向调用。
+**Role:** Node (connector). Connects to Hub as connector; receives Feishu WebSocket messages → connector.message.inbound; sends replies back to Feishu; supports connector.message.push for proactive messages.
 
-**运行**：
+**Run:** Configure .env (see env.example), then `npm run build`, `node dist/index.js` or `npm run start`. Gateway must be running; complete connector mapping in Control UI or RPC.
+
+**Env:** FEISHU_APP_ID, FEISHU_APP_SECRET, GATEWAY_WS_URL; optional FEISHU_DOMAIN (lark for international), CONNECTOR_ID, CONNECTOR_DISPLAY_NAME.
+
+---
+
+## 6. sandbox-node (@monou/sandbox-node)
+
+**Role:** Node. Connects with role=node, capabilities `["sandbox"]`; runs system.run, system.which in an isolated workspace; target of node.invoke. Start via **node-creator** scripts or directly.
+
+**Run:**
 
 ```bash
 GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.sandbox npm run sandbox-node
 ```
 
-**环境变量**：
+**Env:**
 
-| 变量 | 说明 | 默认 |
-|------|------|------|
-| GATEWAY_URL | Gateway WebSocket 地址 | 必填 |
-| SANDBOX_NODE_ID | 本节点 ID（node.list 可见） | sandbox-1 |
-| SANDBOX_WORKSPACE | 沙箱工作目录 | os.tmpdir()/monou-sandbox-&lt;nodeId&gt; |
-| SANDBOX_USE_DOCKER | 1= Docker 执行，0= 本机子进程 | 1 |
-| SANDBOX_IMAGE | Docker 镜像 | debian:bookworm-slim |
-| GATEWAY_TOKEN / GATEWAY_PASSWORD | 可选认证 | - |
+| Var | Purpose | Default |
+|-----|---------|---------|
+| GATEWAY_URL | Gateway WebSocket URL | Required |
+| SANDBOX_NODE_ID | nodeId in node.list | sandbox-1 |
+| SANDBOX_WORKSPACE | Workspace for commands | os.tmpdir()/paramecium-u-sandbox-&lt;nodeId&gt; |
+| SANDBOX_USE_DOCKER | 1=Docker, 0=subprocess | 1 |
+| SANDBOX_IMAGE | Docker image | debian:bookworm-slim |
+| GATEWAY_TOKEN / GATEWAY_PASSWORD | Optional auth | — |
 
 ---
 
-## 7. browser-node（@monou/browser-node）
+## 7. browser-node (@monou/browser-node)
 
-**职责**：L3 Node（浏览器）。以 role=node 连接 Gateway，声明 **capabilities: ["browser"]**，用 Playwright WebKit 执行 browser_fetch 等；供 node.invoke 定向调用。其他 Agent 可通过 **node.list** 或 **gateway_browser_nodes** 发现具备 browser 能力的节点（类似 MCP 发现）。
+**Role:** Node. Connects with role=node, capabilities `["browser"]`; Playwright WebKit for browser_fetch, browser_click, browser_fill, browser_links, browser_screenshot, browser_pages, browser_switch, browser_new_tab. Agents call it via **gateway_node_invoke** (gateway_skill).
 
-**运行**：
+**Run:**
 
 ```bash
-# 先安装 WebKit：npx playwright install webkit
+# Install WebKit: npx playwright install webkit
 cd apps/browser-node && npm run build
 GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
-# 或从根目录（需先构建）：GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
+# Or from root (after build): GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
 ```
 
-**环境变量**：
+**Env:**
 
-| 变量 | 说明 | 默认 |
-|------|------|------|
-| GATEWAY_URL | Gateway WebSocket 地址 | 必填 |
-| BROWSER_NODE_ID | 本节点 ID（node.list 可见） | browser-1 |
-| BROWSER_HEADED | 1= 有头（可见窗口） | 0（无头） |
-| BROWSER_USER_DATA_DIR | 浏览器 profile 持久化目录（登录态保留） | - |
-| GATEWAY_TOKEN / GATEWAY_PASSWORD | 可选认证 | - |
+| Var | Purpose | Default |
+|-----|---------|---------|
+| GATEWAY_URL | Gateway WebSocket URL | Required |
+| BROWSER_NODE_ID | nodeId in node.list | browser-1 |
+| BROWSER_HEADED | 1=headed window | 0 |
+| BROWSER_USER_DATA_DIR | Profile dir (persist login) | — |
+| GATEWAY_TOKEN / GATEWAY_PASSWORD | Optional auth | — |
 
-**协议**：node.invoke 支持 `browser_fetch`（打开 URL、正文+截图）、`browser_links`（当前页链接）、`browser_click`（按文本/选择器点击）、`browser_fill`（输入框填入）、`browser_screenshot`、`browser_pages`/`browser_switch`/`browser_new_tab` 等。Agent 端 **browser_skill** 提供 browser_nodes、browser_capabilities、browser_fetch、browser_links、browser_click、browser_fill 等工具。
+**Protocol:** node.invoke commands: browser_fetch, browser_links, browser_click, browser_fill, browser_screenshot, browser_pages, browser_switch, browser_new_tab. Use **gateway_nodes_list** then **gateway_node_invoke(nodeId, command, params)** from gateway_skill. See [node-creator](../../.first_paramecium/skills/node-creator/SKILL.md).
 
 ---
 
-## 脚本入口（根 package.json）
+## Scripts (root package.json)
 
-- `npm run gateway` → 启动 apps/gateway
-- `npm run agent` → 启动 apps/agent（须显式指定 AGENT_DIR、AGENT_ID）
-- `npm run browser-node` → 启动 apps/browser-node（需先在该 app 下 build 并安装 webkit）
-- `npm run sandbox-node` → 启动 apps/sandbox-node
-- `npm run control-ui` → 开发 apps/control-ui（Vite）
-- `npx u-tui` → TUI（终端对话 + Cron）
+| Purpose | Command |
+|---------|---------|
+| Gateway | `npm run gateway` |
+| Agent | `GATEWAY_URL=... AGENT_ID=... AGENT_DIR=... npm run agent` |
+| Browser node | `GATEWAY_URL=... npm run browser-node` (build and install webkit in app first) |
+| Sandbox node | `GATEWAY_URL=... npm run sandbox-node` |
+| Control UI dev | `npm run control-ui` |
+| TUI | `npx u-tui` |
 
-构建：根目录 `npm run build` 按顺序构建各 package 再构建 TUI（u-tui）、agent、sandbox-node、gateway。
+**Build:** From root, `npm run build` builds packages in order, then TUI, agent, sandbox-node, gateway.
 
-## 下一步
+## Next steps
 
-- Gateway 协议：[gateway](../gateway/protocol.md)
-- 整体架构：[architecture](../concepts/architecture.md)
-- Agent 目录约定：[agent-directory](../concepts/agent-directory.md)
-- Control UI 设计：[control-ui/design](../control-ui/design.md)
-- 快速开始：[getting-started](../start/getting-started.md)
+- [Gateway protocol](../gateway/protocol.md)
+- [Architecture](../concepts/architecture.md)
+- [Agent directory](../concepts/agent-directory.md)
+- [Control UI design](../control-ui/design.md)
+- [Getting started](../start/getting-started.md)

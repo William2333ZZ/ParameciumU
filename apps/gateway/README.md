@@ -1,6 +1,6 @@
 # @monou/gateway-app
 
-monoU Gateway 服务端：常驻 WebSocket，提供 health、cron、agents、sessions、agent 执行、node.invoke（远程/本地工具转发）。
+ParameciumU Gateway server: WebSocket server for health, cron, agents, sessions, agent execution, node.invoke (remote/local tool forwarding).
 
 ## 结构
 
@@ -122,4 +122,4 @@ Node 连接时声明 `role: "node"`；其他客户端可 `node.invoke` 向该 no
 
 ## 与 OpenClaw 兼容子集
 
-本 Gateway 在「多会话、Session 持久化、agent/chat RPC、事件」上与 OpenClaw 的 Gateway 子集对齐，便于复用客户端或迁移。主要能力：多会话 store、主 session、sessions.list/preview/patch、agent 按 session 执行并写回 transcript、chat.history/chat.send、Session 过期（daily/idle）与显式 /new、/reset、agent.runId + agent.wait + chat.abort、流式事件 agent.run.started/chunk/done、skills.status。差异与待办见 `docs/monou-vs-openclaw-improvements.md`。
+本 Gateway 在「多会话、Session 持久化、agent/chat RPC、事件」上与 OpenClaw 的 Gateway 子集对齐，便于复用客户端或迁移。主要能力：多会话 store、主 session、sessions.list/preview/patch、agent 按 session 执行并写回 transcript、chat.history/chat.send、Session 过期（daily/idle）与显式 /new、/reset、agent.runId + agent.wait + chat.abort、流式事件 agent.run.started/chunk/done、skills.status。差异与待办见 `docs/monou-vs-openclaw-improvements.md`（若存在）。

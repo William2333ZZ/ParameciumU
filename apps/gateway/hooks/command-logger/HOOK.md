@@ -4,7 +4,7 @@ description: 在 Gateway 启动时写一条审计日志（示例 hook）
 events:
   - gateway:startup
 metadata:
-  monou:
+  paramecium-u:
     emoji: "📋"
 ---
 

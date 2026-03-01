@@ -1,38 +1,87 @@
 ---
 name: gateway_skill
-description: Query the connected Gateway for linked agents, nodes, each agent's cron jobs and skills. Use when the user asks who is connected, what agents can do, what scheduled tasks exist, or to discover topology (nodes/connectors). Requires Gateway connection.
+description: Complete toolset for interacting with the monoU Gateway. Discover topology (online agents, L3 nodes and their capabilities), query per-agent skills and cron jobs, delegate tasks to other agents, invoke L3 node capabilities (browser-node / sandbox-node via node.invoke, analogous to MCP servers), manage sessions, and push messages to connectors (e.g. Feishu). Use when the user asks about: who is online, what agents can do, scheduled tasks, delegating work to another agent, using browser or sandbox capabilities, sending messages to Feishu/channels, or viewing/sending to sessions. Requires Gateway connection.
 ---
 
 # Gateway Skill
 
-Query the monoU Gateway that this agent is connected to: list linked agents, nodes/connectors, per-agent cron jobs, and per-agent skills (what each agent can do).
+Interact with the monoU Gateway. All tools in this skill call through the Gateway WebSocket.
+
+## Architecture
+
+```
+L1 Connectors (Feishu, Control UI)
+        ↓
+L2 Gateway  ← all tools here route through Gateway
+        ↓              ↓
+L3a Agent          L3b Node
+(Runner)      (browser-node / sandbox-node)
+               declares capabilities on connect;
+               invoked via node.invoke (like MCP servers)
+```
+
+**L3 Nodes** connect with `role=node` and declare `capabilities` (e.g. `["browser"]`, `["sandbox"]`). Use `gateway_node_invoke` to call their commands — this is the MCP-equivalent mechanism in monoU, not skill files.
 
 ## Tools
 
+### Topology
+
 | Tool | Use |
 |------|-----|
-| **gateway_agents_list** | List all agents currently connected to the Gateway (agentId, deviceId, online, lastHeartbeatAt). |
-| **gateway_nodes_list** | List nodes and connectors (topology): each node has deviceId and its agents; connectors are L1 entries (e.g. Feishu). |
-| **gateway_cron_list** | List cron/scheduled tasks for an agent. Pass optional `agentId` (default .u). Returns jobs with name, schedule, nextRunAtMs, enabled. |
-| **gateway_skills_status** | Get skills/capabilities of an agent. Pass optional `agentId` (default .u). Returns skill names and summaries (what the agent can do). |
-| **gateway_agent_send_to_session** | 委托：把一条消息发到指定 Agent 的 session，由该 Agent 在该 session 内直接回复（直接对话）。必填 `targetAgentId`、`message`；可选 `sessionKey`（不传则用对方主 session）。定时任务与工具由对方用自己的 cron/技能完成。 |
+| **gateway_agents_list** | List all connected agents (agentId, deviceId, online, lastHeartbeatAt). |
+| **gateway_nodes_list** | List L3 nodes (nodeId, capabilities) and L1 connectors (e.g. Feishu). |
 
-## When to use
+### Skills & Cron
 
-- **"有哪些 agent 连着？" / "谁在线？"** → `gateway_agents_list`
-- **"每个 agent 能做什么？" / "xxx 有什么能力？"** → `gateway_agents_list` then `gateway_skills_status(agentId)` for each, or one agent.
-- **"定时任务有哪些？" / "xxx 的 cron 是什么？"** → `gateway_cron_list(agentId)`
-- **"拓扑/节点有哪些？" / "飞书接入了吗？"** → `gateway_nodes_list`
-- **委托 / 直接对话**：「让某 agent 做某事」→ 先 `gateway_agents_list` 确认对方在线，再 `gateway_agent_send_to_session(targetAgentId, message)` 把话发到对方 session；对方在自己 session 里回复，定时任务与工具由对方用自己的 cron/技能完成。
-- **Orchestration**: Before delegating or suggesting "让某 agent 执行某任务", use these tools to see who is connected and what they can do.
-- **Troubleshooting**: "为什么收不到推送？" → check connectors in `gateway_nodes_list`; "某 agent 的定时有没有跑？" → `gateway_cron_list(agentId)`.
+| Tool | Use |
+|------|-----|
+| **gateway_skills_status** | Get an agent's skill list (what it can do). Optional `agentId`, defaults to current agent. |
+| **gateway_cron_list** | List an agent's scheduled jobs. Optional `agentId`, defaults to current agent. |
+
+### Agent Delegation
+
+| Tool | Use |
+|------|-----|
+| **gateway_agent_send_to_session** | Send a message to another agent's session; that agent executes and replies in that session. Required: `targetAgentId`, `message`. Optional: `sessionKey` (defaults to `agent:<targetAgentId>:main`). |
+
+### Node Invocation (MCP-style)
+
+| Tool | Use |
+|------|-----|
+| **gateway_node_invoke** | Invoke a command on an L3 node. Use `gateway_nodes_list` first to find `nodeId` and `capabilities`. browser-node: `browser_fetch`, `browser_click`, `browser_fill`, `browser_links`, `browser_screenshot`, `browser_pages`, `browser_switch`, `browser_new_tab`. sandbox-node: `system.run`, `system.which`. |
+
+### Sessions
+
+| Tool | Use |
+|------|-----|
+| **sessions_list** | List all sessions (sessionKey, sessionId, updatedAt, displayName). |
+| **sessions_preview** | Same but fewer fields — quick overview. |
+| **sessions_send** | Send a message to a session by `sessionKey`; triggers agent reply in that session. |
+
+### Message Push
+
+| Tool | Use |
+|------|-----|
+| **send_message** | Push a message to a connector channel (e.g. Feishu group/DM). Get `connectorId` from `gateway_nodes_list` connectors. Required: `connectorId`, `chatId`, `text`. |
+
+## Common Patterns
+
+- **"Who is online?"** → `gateway_agents_list`
+- **"Is there a browser node?"** → `gateway_nodes_list` (check `capabilities` field)
+- **"What can agent X do?"** → `gateway_skills_status(agentId)`
+- **"Ask agent X to do Y"** → `gateway_agents_list` to confirm online → `gateway_agent_send_to_session`
+- **"Open a URL with the browser"** → `gateway_nodes_list` to find node with `capabilities: ["browser"]` → `gateway_node_invoke(nodeId, "browser_fetch", { url })`
+- **"Run a command in sandbox"** → `gateway_nodes_list` for `capabilities: ["sandbox"]` → `gateway_node_invoke(nodeId, "system.run", { command })`
+- **"Send a Feishu message"** → `gateway_nodes_list` for connectorId → `send_message(connectorId, chatId, text)`
+- **"Why isn't Feishu push working?"** → `gateway_nodes_list` to check connector status
+- **"Did agent X's cron run?"** → `gateway_cron_list(agentId)`
 
 ## Guidelines
 
-- Requires Gateway: if not connected (e.g. running with `npm run u` without Gateway), tools return an error.
-- Prefer `gateway_agents_list` first when the user asks about "agents" or "谁", then `gateway_skills_status` or `gateway_cron_list` for details.
-- For "每个 agent 能做什么", call `gateway_skills_status` once per agentId from the agents list, or ask the user which agent they care about.
+- All tools require Gateway. If not connected (no `GATEWAY_URL` set when agent started), tools return an error.
+- For browser interactions beyond `gateway_node_invoke` (auto node selection, screenshot parsing), use `browser_skill` — it wraps `node.invoke` internally.
+- Always run `gateway_agents_list` before delegating to confirm the target agent is online.
 
-## 更多场景
+## More Scenarios
 
-详见 [references/scenarios.md](references/scenarios.md)：发现与概览、能力查询、定时任务、编排与建议、排查运维、组合用法等。
+See [references/scenarios.md](references/scenarios.md) for discovery, capability queries, cron troubleshooting, orchestration, and combined usage examples.

@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# 创建与 .u 同构的 Agent 目录，可从模板复制 SOUL、IDENTITY、必备技能。
-# 用法:
+# Create a new agent directory with the same structure as .first_paramecium.
+# Copies SOUL.md, IDENTITY.md, cron/jobs.json, and selected skills from the
+# agent-template package (or .first_paramecium as fallback).
+#
+# Usage:
 #   AGENT_DIR=/path/to/new_agent MONOU_ROOT=/path/to/monoU [FROM_TEMPLATE=1] ./create-agent-dir.sh
-# 环境变量:
-#   AGENT_DIR     新 Agent 目录绝对路径（必填）
-#   MONOU_ROOT    monoU 仓库根目录；用于找 packages/agent-template/template 或 .u（默认脚本向上查找）
-#   FROM_TEMPLATE 若为 1，从 packages/agent-template/template 复制；否则从 MONOU_ROOT/.u 复制（缺省 1）
-#   SKILLS        要复制的技能名，空格分隔，例如 "base_skill memory cron"（缺省则复制模板全部技能）
+#
+# Environment variables:
+#   AGENT_DIR      Absolute path for the new agent directory (required).
+#   MONOU_ROOT     monoU repo root; auto-detected from script location if not set.
+#   FROM_TEMPLATE  If 1 (default), copy from packages/agent-template/template;
+#                  otherwise fall back to .first_paramecium.
+#   SKILLS         Space-separated skill names to copy, e.g. "base_skill memory cron".
+#                  If empty, copies all skills from the source.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,15 +45,15 @@ mkdir -p "$AGENT_DIR/skills"
 if [ "$FROM_TEMPLATE" = "1" ] && [ -d "$MONOU_ROOT/packages/agent-template/template" ]; then
   SRC="$MONOU_ROOT/packages/agent-template/template"
 else
-  SRC="$MONOU_ROOT/.u"
+  SRC="$MONOU_ROOT/.first_paramecium"
 fi
 
 if [ ! -d "$SRC" ]; then
-  echo "Source dir not found: $SRC" >&2
+  echo "Source directory not found: $SRC" >&2
   exit 1
 fi
 
-# SOUL.md, IDENTITY.md
+# Copy SOUL.md and IDENTITY.md
 for f in SOUL.md IDENTITY.md; do
   if [ -f "$SRC/$f" ]; then
     cp "$SRC/$f" "$AGENT_DIR/$f"
@@ -55,11 +61,15 @@ for f in SOUL.md IDENTITY.md; do
   fi
 done
 
-# 会话由 Gateway 管理（.gateway/sessions/transcripts/），agent 目录不包含 chat.json
-# cron/jobs.json
-if [ -f "$SRC/cron/jobs.json" ]; then cp "$SRC/cron/jobs.json" "$AGENT_DIR/cron/"; else echo '{"version":1,"jobs":[]}' > "$AGENT_DIR/cron/jobs.json"; fi
+# Sessions are managed by the Gateway (.gateway/sessions/); no chat.json needed in the agent dir.
+# Copy cron/jobs.json (create empty if not present in source)
+if [ -f "$SRC/cron/jobs.json" ]; then
+  cp "$SRC/cron/jobs.json" "$AGENT_DIR/cron/"
+else
+  echo '{"version":1,"jobs":[]}' > "$AGENT_DIR/cron/jobs.json"
+fi
 
-# skills
+# Copy skills
 if [ -n "$SKILLS" ]; then
   for s in $SKILLS; do
     if [ -d "$SRC/skills/$s" ]; then
@@ -75,4 +85,4 @@ else
   fi
 fi
 
-echo "Agent dir ready: $AGENT_DIR"
+echo "Agent directory ready: $AGENT_DIR"

@@ -1,61 +1,79 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-  title: "ParameciumU 文档",
-  description: "以「智能体标准化定义（基于文件夹）」为核心的主权智能体平台；你是一只草履虫，可吸收营养进化、可复制繁殖。",
+  title: "ParameciumU Docs",
+  description:
+    "Sovereign agent platform: definition = folder; Hub routes, Agents and Nodes run. Connectors as nodes.",
   base: "/ParameciumU/",
   srcDir: ".",
   outDir: "./.vitepress/dist",
   ignoreDeadLinks: true,
   themeConfig: {
     nav: [
-      { text: "首页", link: "/" },
-      { text: "快速开始", link: "/start/getting-started" },
-      { text: "架构", link: "/concepts/architecture" },
-      { text: "自动化", link: "/automation/cron" },
+      { text: "Home", link: "/" },
+      { text: "Getting started", link: "/start/getting-started" },
+      { text: "Architecture", link: "/concepts/architecture" },
+      { text: "Automation", link: "/automation/cron" },
     ],
     sidebar: [
       {
-        text: "入门",
+        text: "Introduction",
         items: [
-          { text: "文档首页", link: "/" },
-          { text: "快速开始", link: "/start/getting-started" },
+          { text: "Home", link: "/" },
+          { text: "Getting started", link: "/start/getting-started" },
         ],
       },
       {
-        text: "产品使用",
+        text: "Concepts",
         items: [
-          { text: "使用指南", link: "/start/getting-started" },
-          { text: "应用说明 (apps)", link: "/runtime/apps" },
+          { text: "Architecture", link: "/concepts/architecture" },
+          { text: "Agent directory (Definition)", link: "/concepts/agent-directory" },
+          { text: "Vision and roadmap", link: "/concepts/vision-and-roadmap" },
+          { text: "Paramecium vision", link: "/concepts/paramecium-vision" },
+          { text: "AI OS sketch", link: "/concepts/ai-os-sketch" },
         ],
       },
       {
-        text: "设计",
+        text: "Gateway (Hub)",
         items: [
-          { text: "产品叙事与命名愿景", link: "/concepts/paramecium-vision" },
-          { text: "产品定位与能力规划", link: "/concepts/vision-and-roadmap" },
-          { text: "整体架构", link: "/concepts/architecture" },
-          { text: "Agent 目录约定", link: "/concepts/agent-directory" },
-          { text: "Gateway 概述", link: "/gateway/index" },
-          { text: "Gateway 协议与实现", link: "/gateway/protocol" },
-          { text: "定时任务（Cron）", link: "/automation/cron" },
+          { text: "Overview", link: "/gateway/index" },
+          { text: "Protocol", link: "/gateway/protocol" },
+          { text: "Multi-agent", link: "/gateway/multi-agent" },
+        ],
+      },
+      {
+        text: "Automation",
+        items: [
+          { text: "Cron", link: "/automation/cron" },
           { text: "Heartbeat", link: "/automation/heartbeat" },
-          { text: "Control UI 设计", link: "/control-ui/design" },
-          { text: "节点能力接入", link: "/control-ui/node-capabilities" },
-          { text: "Code Engineer 与 code_skill", link: "/reference/code-skill-design" },
-          { text: "Browser Node 设计", link: "/reference/browser-node-design" },
         ],
       },
       {
-        text: "运行",
+        text: "Runtime",
         items: [
-          { text: "模块说明 (packages)", link: "/runtime/packages" },
-          { text: "Agent 运行机制", link: "/runtime/agent-running" },
+          { text: "Apps", link: "/runtime/apps" },
+          { text: "Packages", link: "/runtime/packages" },
+          { text: "Agent running", link: "/runtime/agent-running" },
+          { text: "Heartbeat", link: "/runtime/heartbeat" },
         ],
       },
       {
-        text: "维护",
-        items: [{ text: "部署文档站", link: "/deploy-docs-site" }],
+        text: "Control UI",
+        items: [
+          { text: "Design", link: "/control-ui/design" },
+          { text: "Node capabilities", link: "/control-ui/node-capabilities" },
+        ],
+      },
+      {
+        text: "Reference",
+        items: [
+          { text: "Code skill design", link: "/reference/code-skill-design" },
+          { text: "Browser node design", link: "/reference/browser-node-design" },
+        ],
+      },
+      {
+        text: "Maintenance",
+        items: [{ text: "Deploy docs site", link: "/deploy-docs-site" }],
       },
     ],
   },

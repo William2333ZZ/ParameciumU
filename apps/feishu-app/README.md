@@ -1,6 +1,6 @@
-# monoU Feishu App
+# ParameciumU Feishu App
 
-飞书 connector：通过飞书 WebSocket 接收消息，转发到 monoU Gateway 的 `connector.message.inbound`，由 Agent 生成回复后发回飞书。
+Feishu connector: receives messages via Feishu WebSocket, forwards to ParameciumU Gateway `connector.message.inbound`; Agent produces reply and sends back to Feishu.
 
 ## 配置
 
@@ -37,11 +37,11 @@
 
 ## 运行
 
-1. 先启动 monoU Gateway（含 agent 能力）：在 monoU 根目录 `npm run build` 后 `node apps/gateway/dist/index.js`（或使用已有启动方式）。
+1. Start ParameciumU Gateway (with agent): from repo root run `npm run build` then `node apps/gateway/dist/index.js` (or your usual start).
 2. 再启动本 App：
 
 ```bash
-# 在 monoU 根目录
+# From repo root
 npm install
 npm run build --workspace=@monou/feishu-app
 # 或进入 apps/feishu-app 后 npm install && npm run build

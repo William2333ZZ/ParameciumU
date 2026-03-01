@@ -8,7 +8,7 @@ import type { GatewayConnectionOptions } from "./gateway-client.js";
 import { getDefaultGatewayUrl } from "./gateway-client.js";
 import { theme } from "./theme.js";
 
-const TITLE = "monoU TUI";
+const TITLE = "ParameciumU TUI";
 const SUBTITLE = "连接 Gateway 后管理对话、拓扑、会话、Cron（与 Control UI 同源）";
 const PROMPTS = ["Gateway URL (ws 或 wss)", "Token（可选，直接 Enter 跳过）", "Password（可选，直接 Enter 跳过）"];
 const FOOTER = "Enter 下一步/连接  Esc 取消";
@@ -98,7 +98,7 @@ export class ConnectScreen extends Container implements Component {
 			this.connecting = false;
 			const msg = (e as Error).message;
 			if (msg.includes("invalid request frame") || msg.includes("Invalid")) {
-				this.error = "该地址可能不是 monoU Gateway，请确认 9347 上运行的是 monoU：npm run gateway";
+				this.error = "This may not be a ParameciumU Gateway. Ensure Gateway is running on 9347: npm run gateway";
 			} else {
 				this.error = msg;
 			}

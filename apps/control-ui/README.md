@@ -1,4 +1,4 @@
-# monoU Control UI
+# ParameciumU Control UI
 
 Web 前端：连接 Gateway，管理节点/Agent、对话、Cron、状态。与文档 `docs/control-ui-vision.md` 对齐。
 

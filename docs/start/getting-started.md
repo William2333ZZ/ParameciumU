@@ -1,122 +1,131 @@
 ---
-title: "快速开始"
-summary: "在本地构建并运行 ParameciumU：Gateway、Agent、Control UI 或 TUI 的端到端步骤"
+title: "Getting started"
+summary: "Build and run ParameciumU locally: Gateway, Agent, Control UI or TUI, step by step."
 read_when:
-  - 首次搭建本地环境
-  - 需要启动 Gateway / Agent / Control UI / TUI 任一组件
-  - 排查「连不上、对话没反应」时对照步骤
+  - First-time local setup
+  - Starting Gateway / Agent / Control UI / TUI
+  - Debugging connection or "no reply" issues
 ---
 
-# 快速开始
+# Getting started
 
-本文档帮助你在本地构建并运行 ParameciumU：Gateway、Agent、Control UI 或 TUI。
+This doc walks you through building and running ParameciumU: Gateway, Agent, and Control UI or TUI. See [architecture.md](../concepts/architecture.md) for roles: Hub (Gateway), Agent, Node, Definition, Client.
 
-## 前置要求
+## Prerequisites
 
 - **Node.js >= 20**
-- 若使用 LLM：配置 `OPENAI_API_KEY` 或 `AIHUBMIX_API_KEY`、`AIHUBMIX_BASE_URL`（可复制根目录 `env.example` 为 `.env` 后填写，由 dotenv 加载）
+- For LLM: set `OPENAI_API_KEY` or `AIHUBMIX_API_KEY` + `AIHUBMIX_BASE_URL` (copy repo root `env.example` to `.env`; dotenv loads it).
 
-## 一、构建
+## 1. Build
 
-在 monorepo 根目录执行：
+From the repo root:
 
 ```bash
 npm install
 npm run build
 ```
 
-构建顺序：packages（shared → agent-core → skills → cron → agent-sdk → agent-template → compaction → llm-provider → agent-from-dir → tui → gateway），然后 apps（gateway、agent）。control-ui 为 Vite 开发/构建，按需执行 `npm run control-ui` 或 `npm run control-ui:build`。
+Build order: packages (shared → agent-core → skills → cron → agent-sdk → agent-template → llm-provider → agent-from-dir → tui → gateway), then apps (gateway, agent, etc.). Control UI is Vite: `npm run control-ui` (dev) or `npm run control-ui:build` (output in apps/control-ui/dist).
 
-## 二、准备 Agent 目录（须显式指定）
+## 2. Agent directory (required for agent)
 
-无默认目录，启动 agent 时必须指定 **AGENT_DIR** 和 **AGENT_ID**。
+There is no default; you must set **AGENT_DIR** and **AGENT_ID** when starting the agent.
 
-若尚未有智能体目录：可从模板生成 `.first_paramecium`（与 `packages/agent-template/template` 同构，skills 与模板对齐），或复制已有 agent 目录（如 `agents/code_engineer`）后启动时传入该路径。
+If you don’t have an agent dir yet: create from template (same shape as `packages/agent-template/template`) or copy an existing one (e.g. `agents/code_engineer`).
 
-从模板生成（推荐，skills 与 template 一致）：
+Create from template (recommended):
 
 ```bash
 node -e "require('@monou/agent-template').ensureAgentDir({ rootDir: process.cwd() })"
 ```
 
-或复制已有目录：`cp -r agents/code_engineer .first_paramecium`
+Or copy: `cp -r agents/code_engineer .first_paramecium`
 
-## 三、启动 Gateway
+## 3. Start Gateway
 
-终端 1：
+Terminal 1:
 
 ```bash
 npm run gateway
 ```
 
-默认监听 `ws://127.0.0.1:9347`。可指定端口：`GATEWAY_PORT=18790 npm run gateway`。如需认证，设置 `GATEWAY_TOKEN` 或 `GATEWAY_PASSWORD`，连接时首条消息须为 connect 并带对应 token/password。
+Default: `ws://127.0.0.1:9347`. Custom port: `GATEWAY_PORT=9348 npm run gateway`. For auth, set `GATEWAY_TOKEN` or `GATEWAY_PASSWORD`; clients must send connect with the same token/password.
 
-## 四、启动 Agent（执行对话所必需）
+## 4. Start Agent (required for chat)
 
-Gateway 只做路由与转发，不执行 agent。需在另一终端启动 agent 并连接同一 Gateway：
+Gateway only routes; it does not run the agent. Start the agent in another terminal and point it at the same Gateway:
 
-终端 2：
+Terminal 2:
 
 ```bash
 GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent
 ```
 
-多 agent 时再开终端，换 `AGENT_ID` 与 `AGENT_DIR` 即可。
+For multiple agents, open more terminals with different AGENT_ID and AGENT_DIR.
 
-## 五、使用 Control UI（Web）
+## 5. Control UI (web)
 
-终端 3（或任意时刻，Gateway 与 Agent 已起即可）：
+Terminal 3 (any time after Gateway and at least one agent are running):
 
 ```bash
 npm run control-ui
 ```
 
-浏览器打开 http://localhost:5173，输入 Gateway URL（如 `ws://127.0.0.1:9347`）和可选 token/password 连接。连接后可看到节点/Agent、会话、Cron 等，并与 Agent 对话。
+Open http://localhost:5173, enter Gateway URL (e.g. `ws://127.0.0.1:9347`) and optional token/password. You can then see agents/nodes, sessions, cron, and chat with the agent.
 
-## 六、使用 TUI（终端）
+## 6. TUI (terminal)
 
-若希望用终端 TUI 对话与管理 Cron，在 Gateway 与 Agent 已启动的前提下，可再运行：
+With Gateway and agent running:
 
 ```bash
 npx u-tui
 ```
 
-首屏为对话；输入 `/cron` 进入定时任务面板，`q` 退出 Cron 面板。TUI 连 Gateway，对话历史由 Gateway 会话管理（.gateway/sessions/transcripts/）。
+Main screen: chat. Type `/cron` for the cron panel; `q` to leave cron. TUI connects to Gateway; session history is in Gateway (e.g. .gateway/sessions/transcripts/).
 
-## 七、飞书连接（可选）
+## 7. Feishu (optional)
 
-1. 配置飞书应用与 WebSocket 等（见 `apps/feishu-app/env.example`）。
-2. 启动 Gateway 与至少一个 agent。
-3. 运行 feishu-app：`cd apps/feishu-app && npm run build && node dist/index.js`。
-4. 在 Control UI 或通过 RPC 完成 connector 映射，将飞书会话映射到指定 agent/node。
+1. Configure the Feishu app and WebSocket (see `apps/feishu-app/env.example`).
+2. Start Gateway and at least one agent.
+3. Run feishu-app: `cd apps/feishu-app && npm run build && node dist/index.js`.
+4. In Control UI or via RPC, set up connector mapping so Feishu sessions map to the desired agent.
 
-## 八、沙箱 Node（可选）
+## 8. Nodes (optional)
 
-若需在隔离环境执行 system.run / system.which（供 node.invoke 调用）：
+**Sandbox node** (system.run / system.which in isolated workspace):
 
 ```bash
 GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 npm run sandbox-node
 ```
 
-默认使用 Docker；设 `SANDBOX_USE_DOCKER=0` 可退化为本机子进程。
+Default uses Docker; set `SANDBOX_USE_DOCKER=0` for local subprocess.
 
-## 九、常用命令汇总
+**Browser node** (Playwright WebKit for browser_fetch, etc.):
 
-| 目的 | 命令 |
-|------|------|
-| 构建全量 | `npm run build` |
-| 启动 Gateway | `npm run gateway` |
-| 启动 Agent | `GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent` |
-| 开发 Control UI | `npm run control-ui` |
-| TUI（终端） | `npx u-tui` |
-| 启动沙箱 Node | `GATEWAY_URL=... npm run sandbox-node` |
+```bash
+# In apps/browser-node: npx playwright install webkit, npm run build
+GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
+```
 
-**说明**：定时任务（Cron）的**执行**内嵌在 Agent 进程中。启动 `npm run agent` 后，同一进程内会运行 runScheduler，到点自动执行 cron/jobs.json 中的任务（含 Heartbeat）。**无需**单独运行 `npm run cron:daemon`。`npm run cron:daemon` 为可选的独立调度器进程，仅推进任务时间戳、不执行 agent turn，仅在特殊场景需要。
+Agents use **gateway_skill** → **gateway_nodes_list** and **gateway_node_invoke** to call nodes. See [node-creator](../../.first_paramecium/skills/node-creator/SKILL.md) and [apps.md](../runtime/apps.md).
 
-## 下一步
+## 9. Command summary
 
-- 整体架构与四层抽象：[架构](../concepts/architecture.md)
-- Gateway 协议与会话：[Gateway](../gateway/protocol.md)
-- 应用与环境变量：[apps](../runtime/apps.md)
-- Agent 目录约定与 SOUL/skills：[Agent 目录](../concepts/agent-directory.md)
-- 部署文档站：[部署说明](../deploy-docs-site.md)
+| Goal | Command |
+|------|---------|
+| Full build | `npm run build` |
+| Start Gateway | `npm run gateway` |
+| Start Agent | `GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium npm run agent` |
+| Control UI (dev) | `npm run control-ui` |
+| TUI | `npx u-tui` |
+| Sandbox node | `GATEWAY_URL=... npm run sandbox-node` |
+
+**Cron:** Execution runs **inside the agent process**. After you start `npm run agent`, the same process runs runScheduler and executes cron/jobs.json (including Heartbeat) on schedule. You do **not** need `npm run cron:daemon` for normal use. `cron:daemon` is an optional separate process that only advances timestamps and does not run agent turns.
+
+## Next steps
+
+- [Architecture](../concepts/architecture.md)
+- [Gateway protocol](../gateway/protocol.md)
+- [Apps and env vars](../runtime/apps.md)
+- [Agent directory](../concepts/agent-directory.md)
+- [Deploy docs site](../deploy-docs-site.md)

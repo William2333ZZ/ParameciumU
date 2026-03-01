@@ -57,34 +57,37 @@ Build order: `packages` (shared → agent-core → skills → cron → agent-sdk
 
 ## How it’s wired
 
+
+Everything goes through one **Hub** (Gateway). **Agents** load a **Definition** (folder) and run turns; **Nodes** expose capabilities (browser, sandbox, connector); **Clients** (Control UI, TUI) talk to the Hub.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  L1 Connectors — Control UI · Feishu · TUI · (future: API, etc.) │
+│  Definition (folder) · SOUL · IDENTITY · skills/ · memory/ · cron │
 └─────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  L2 Gateway — route, map, sessions. No LLM, no stored “soul”.    │
+│  Hub (Gateway) — route · sessions · cron RPC · node.invoke. No LLM.          │
 │  ws://127.0.0.1:9347                                             │
 └─────────────────────────────────────────────────────────────────┘
                                     │
           ┌─────────────────────────┼─────────────────────────┐
           ▼                         ▼                         ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  L3a Agent       │     │  L3b Node        │     │  L3c node.invoke │
-│  (Runner)        │     │  (sandbox/device)│     │  (remote tools)  │
+│  Agent (runner)  │     │  Node (browser,  │     │  Client (Control  │
+│  + definition    │     │  sandbox, conn.) │     │  UI, TUI)         │
 └────────┬────────┘     └────────┬────────┘     └─────────────────┘
          │                       │
          ▼                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  L4 Definition — SOUL · IDENTITY · skills/ · memory/ · cron/     │
+│  (Definition = agent folder, loaded by Agent)                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- **L1:** All UIs and third-party entry points are Connectors.
-- **L2:** Single hub; stateless routing + light persistence; no LLM, no cron execution.
-- **L3:** Many Nodes, each can run many Agents. One Agent = one L4 directory + one Runner process.
-- **L4:** The only source of truth for “who” the paramecium is; any compatible runtime can load it.
+- **Hub:** Single center; routing and forwarding only; no LLM, no cron execution.
+- **Agent:** One Definition (folder) + one runner process; runs turns, heartbeat, cron.
+- **Node:** Capability server (browser, sandbox, Feishu/connector); agents call via gateway_node_invoke.
+- **Definition:** The only source of truth for “who” the paramecium is; any compatible runtime can load it.
 
 ## What’s in the box
 
@@ -127,6 +130,8 @@ ParameciumU/
 - [Apps & runtime](docs/runtime/apps.md)
 - [Gateway protocol](docs/gateway/protocol.md)
 - [Vision & roadmap](docs/concepts/vision-and-roadmap.md)
+
+To build and deploy the docs as a static site (e.g. GitHub Pages), see [Deploy docs site](docs/deploy-docs-site.md). After enabling **GitHub Actions** as the Pages source, pushes to `main` that touch `docs/` will deploy to `https://YOUR_USERNAME.github.io/ParameciumU/`.
 
 ## License
 

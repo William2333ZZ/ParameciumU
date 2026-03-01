@@ -1,58 +1,65 @@
-# 远程启动 Windows Agent（持久化）
+# Persistent Windows agent via scheduled task
 
-通过 SSH 在远程 Windows 上执行 `start /b node ...` 时，SSH 断开后该进程会随会话结束而被终止，agent 无法持续连接 Gateway。
+When starting `agent-client` on a remote Windows machine via SSH with `start /b node ...`, the process is killed when the SSH session ends. To keep the agent running after SSH disconnects, use a **Windows scheduled task** — the task runs in its own session independent of SSH.
 
-**推荐**：在远程 Windows 上用**计划任务**启动 agent-client。计划任务由系统在独立会话中执行，不依赖 SSH，断开 SSH 后进程仍会保留。
+## Overview
 
-## 流程概览
+1. Create a `.bat` file in the remote monoU directory that sets env vars and runs `node apps\gateway\dist\agent-client.js`.
+2. Create a scheduled task on the remote pointing to that `.bat` (set to a far-future "once" trigger so it never auto-runs — only triggered manually).
+3. To start or restart the agent: SSH in, optionally kill existing `node.exe`, then `schtasks /run /tn <task-name>`.
 
-1. 在远程 monoU 目录下放一个 **.bat**，内容为设置 `GATEWAY_URL`、`AGENT_ID`、`AGENT_DIR` 并执行 `node apps\gateway\dist\agent-client.js`。
-2. 在远程创建**计划任务**，动作为运行该 .bat（任务可设为「按需运行」或「一次性」未来时间，仅通过 `schtasks /run` 触发）。
-3. 需要启动/重启 agent 时，本机 SSH 执行：先结束已有 `node.exe`（可选），再 `schtasks /run /tn <任务名>`。
+Never hardcode SSH credentials in the skill or scripts — ask the user.
 
-认证（SSH 密码或密钥）由用户提供，不要写死在技能或脚本里。
+## 1. The .bat file
 
-## 1. .bat 内容示例
-
-在远程 `C:\Users\用户名\monoU\start-<agent_id>.bat`：
+On the remote at `C:\Users\<username>\monoU\start-<agent_id>.bat`:
 
 ```bat
 @echo off
-cd /d C:\Users\用户名\monoU
-set GATEWAY_URL=ws://本机IP:18790
-set AGENT_ID=win_agent2
-set AGENT_DIR=C:\Users\用户名\monoU\agents\win_agent2
+cd /d C:\Users\<username>\monoU
+set GATEWAY_URL=ws://<local-reachable-address>:9347
+set AGENT_ID=<agent_id>
+set AGENT_DIR=C:\Users\<username>\monoU\agents\<agent_id>
 node apps\gateway\dist\agent-client.js
 ```
 
-路径必须用**绝对路径**，且与远程实际路径一致。
+Use **absolute paths** — relative paths can fail when the task runs outside an interactive session.
 
-## 2. 计划任务
+## 2. Create the scheduled task (one-time setup)
 
-- **创建任务**（只需做一次；若 .bat 或参数变更，可覆盖创建）：
-  ```cmd
-  schtasks /create /tn "MonouAgent_win_agent2" /tr "C:\Users\用户名\monoU\start-win_agent2.bat" /sc once /st 23:59 /sd 2030/01/01 /f
-  ```
-  `/sc once /st 23:59 /sd 01/01/2030` 表示「一次性、未来某刻」，仅用于占位；实际**不按时间自动跑**，只通过下面「运行」触发。
+```cmd
+schtasks /create /tn "MonouAgent_<agent_id>" /tr "C:\Users\<username>\monoU\start-<agent_id>.bat" /sc once /st 23:59 /sd 2030/01/01 /f
+```
 
-- **运行任务**（每次要启动/重启 agent 时）：
-  ```cmd
-  schtasks /run /tn "MonouAgent_win_agent2"
-  ```
-  任务会在后台执行 .bat，node 进程持续连接 Gateway，SSH 断开也不影响。
+`/sc once /st 23:59 /sd 2030/01/01` sets a far-future trigger so the task never auto-starts — it only runs when you call `schtasks /run`.
 
-- 若希望避免同一台机上重复多个 agent 进程，可在运行任务前先结束已有 node：
-  ```cmd
-  taskkill /F /IM node.exe
-  schtasks /run /tn "MonouAgent_win_agent2"
-  ```
+## 3. Start / restart the agent
 
-## 3. 本机一键脚本
+```cmd
+# Optional: kill any existing node process first
+taskkill /F /IM node.exe
 
-技能目录下脚本 **scripts/start-remote-windows-agent.sh** 可完成：
+# Trigger the task
+schtasks /run /tn "MonouAgent_<agent_id>"
+```
 
-- 在本机生成 .bat 并 scp 到远程；
-- 在远程创建/覆盖计划任务；
-- 可选：先 `taskkill /F /IM node.exe`，再 `schtasks /run`。
+The task runs the `.bat` in the background; the `node` process stays alive after SSH disconnects.
 
-需传入环境变量：`REMOTE_USER`、`REMOTE_HOST`、`AGENT_ID`、`GATEWAY_URL`、`REMOTE_MONOU`（远程 monoU 的 Windows 绝对路径）；可选 `REMOTE_AGENT_DIR`（不设则用 `REMOTE_MONOU\agents\AGENT_ID`）。认证可用 `SSHPASS` 或 SSH 密钥。详见脚本内注释。
+## One-command script (from local machine)
+
+`scripts/start-remote-windows-agent.sh` automates the full flow:
+
+- Generates the `.bat` locally and scps it to the remote.
+- Creates/overwrites the scheduled task via SSH.
+- Optionally kills existing `node.exe` (`KILL_FIRST=1`), then triggers `schtasks /run`.
+
+Required env vars: `REMOTE_USER`, `REMOTE_HOST`, `AGENT_ID`, `GATEWAY_URL`, `REMOTE_MONOU` (Windows absolute path to monoU on the remote, e.g. `C:\Users\<username>\monoU`).  
+Optional: `REMOTE_AGENT_DIR` (defaults to `REMOTE_MONOU\agents\AGENT_ID`), `SSHPASS` (for password auth), `KILL_FIRST=1`.
+
+```bash
+REMOTE_USER=<user> REMOTE_HOST=<host> \
+AGENT_ID=<agent_id> \
+GATEWAY_URL=ws://<local-reachable-address>:9347 \
+REMOTE_MONOU='C:\Users\<username>\monoU' \
+"$AGENT_DIR/skills/agent-creator/scripts/start-remote-windows-agent.sh"
+```

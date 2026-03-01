@@ -31,7 +31,7 @@ export function ConnectForm({ onSubmit, error, initialUrl = "", initialToken = "
 
   return (
     <div className="connect-wrap">
-      <h1>monoU Control UI</h1>
+      <h1>ParameciumU Control UI</h1>
       <p className="muted">连接 Gateway 后管理节点、Agent、Cron 与对话</p>
       <form onSubmit={handleSubmit} className="connect-form">
         <label>

@@ -52,7 +52,7 @@ export function MainView({ onDisconnect }: Props) {
       <aside className="sidebar">
         <div className="sidebar-header">
           <span className="status-dot" title="已连接" />
-          <span className="sidebar-title">monoU</span>
+          <span className="sidebar-title">ParameciumU</span>
         </div>
         <nav className="sidebar-nav">
           {NAV.map(({ id, label }) => (

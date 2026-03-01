@@ -1,7 +1,7 @@
 {
   "name": "@monou/feishu-app",
   "version": "0.1.0",
-  "description": "monoU Feishu connector: receive messages via WebSocket, route to Gateway agent, send reply back",
+  "description": "ParameciumU Feishu connector: receive messages via WebSocket, route to Gateway agent, send reply back",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,26 +1,39 @@
-# 记忆工作区布局
+# Memory workspace layout
 
-记忆的唯一天然来源是工作区下的 Markdown 文件。路径由运行环境决定：**默认当前项目的 `./.u` 目录**（或环境变量 `MEMORY_WORKSPACE`）。
+Memory is stored as Markdown under the workspace root. Default root: `./.u` (or env `MEMORY_WORKSPACE`; in monoU often the agent dir, e.g. `.first_paramecium`).
 
-## 文件约定
+## Paths (relative to workspace root)
 
-| 路径（相对工作区根） | 用途 |
-|----------------------|------|
-| `MEMORY.md` | 长期记忆：决策、偏好、重要事实。含 **## Store**（memory_store 追加）、**## Forgotten**（memory_forget 标记）。 |
-| `memory/YYYY-MM-DD.md` | 按日日志，仅追加。例如 `memory/2025-02-10.md`。 |
-| `memory/index.sqlite` | 可选 FTS5 全文索引（+ 可选向量表），由 memory_sync 创建（Node 22+）。 |
+| Path | Purpose |
+|------|---------|
+| `MEMORY.md` | Long-term memory: decisions, preferences, important facts. **## Store** = memory_store append target; **## Forgotten** = memory_forget append target. |
+| `memory/YYYY-MM-DD.md` | Daily log, append-only. e.g. `memory/2025-02-10.md`. |
+| `memory/index.sqlite` | Optional FTS5 (+ optional vector table), created by memory_sync (Node 22+). |
+| `session/transcript.md` | Virtual path when MEMORY_INDEX_SESSION=1: content comes from MEMORY_SESSION_PATH JSON (e.g. Gateway transcript export). |
 
-## 检索与 path 白名单
+## Search and path allowlist
 
-- **memory_search / memory_recall** 会扫描：
-  - 工作区根下的 `MEMORY.md`、`memory.md`；
-  - `memory/` 目录下所有 `.md`；
-  - `MEMORY_EXTRA_PATHS`（逗号分隔）中的路径；
-  - 若启用会话转录索引（`MEMORY_INDEX_SESSION=1`），还有 **session/transcript.md**（来自 `MEMORY_SESSION_PATH` 指定的会话 JSON，如 Gateway 导出的 transcript）。
-- **memory_get** 的 `path` 仅允许上述路径（含 session/*.md，从索引读取），禁止 `..` 或工作区外路径。
+- **memory_search / memory_recall** scan: workspace `MEMORY.md`, `memory.md`; all `.md` under `memory/`; `MEMORY_EXTRA_PATHS`; and, if `MEMORY_INDEX_SESSION=1`, `session/transcript.md` (from session JSON).
+- **memory_get** accepts only the above paths; `..` and paths outside the workspace are rejected.
 
-## 写入
+## Writes
 
-- **memory_store**：追加到 MEMORY.md 的 ## Store 或当日 memory/YYYY-MM-DD.md。
-- **memory_forget**：追加到 MEMORY.md 的 ## Forgotten。
-- 也可用 **write** / **edit** 直接编辑 MEMORY.md 或 memory/*.md，以 Markdown 为事实来源，可 git 管理、人工审阅。
+- **memory_store**: appends to MEMORY.md ## Store or today’s memory/YYYY-MM-DD.md.
+- **memory_forget**: appends to MEMORY.md ## Forgotten (no deletion; for human review).
+- You can also use **write** / **edit** (base_skill) on MEMORY.md or memory/*.md; they are normal files and can be versioned and reviewed.
+
+## Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `MEMORY_WORKSPACE` | Workspace root; default `./.u` |
+| `MEMORY_INDEX_PATH` | FTS5 index path; default `memory/index.sqlite` under workspace |
+| `MEMORY_EXTRA_PATHS` | Comma-separated extra paths (relative or absolute) included in search and path allowlist |
+| `MEMORY_EMBEDDING_ENABLED` | `1` or `true` to write embeddings on memory_sync and enable hybrid search |
+| `EMBEDDING_API_KEY` | Embedding API key (or `OPENAI_API_KEY` fallback) |
+| `EMBEDDING_BASE_URL` | Embedding API base URL; default `https://api.openai.com/v1` |
+| `EMBEDDING_MODEL` | Embedding model name; default `text-embedding-3-small` |
+| `MEMORY_VECTOR_WEIGHT` | Hybrid search vector weight (0–1), default 0.7 |
+| `MEMORY_TEXT_WEIGHT` | Hybrid search FTS weight (0–1), default 0.3 |
+| `MEMORY_INDEX_SESSION` | `1` or `true` to include session transcript in index (experimental) |
+| `MEMORY_SESSION_PATH` | Path to session JSON (`[{ role, content }]`), e.g. Gateway transcript export |

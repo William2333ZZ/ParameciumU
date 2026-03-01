@@ -1,7 +1,7 @@
 {
   "name": "@monou/gateway-app",
   "version": "0.1.0",
-  "description": "monoU Gateway server (health, cron, agents, sessions, agent run, node invoke)",
+  "description": "ParameciumU Gateway server (health, cron, agents, sessions, agent run, node invoke)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

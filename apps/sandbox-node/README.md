@@ -1,6 +1,6 @@
 # Sandbox Node（方案 B）
 
-以 **role=node** 连接 monoU Gateway，声明 `capabilities: ["sandbox"]`，在隔离 workspace 内执行 `system.run` / `system.which`，供 `node.invoke` 定向调用。详见 [docs/sandbox-openclaw-pimono-and-monou.md](../../docs/sandbox-openclaw-pimono-and-monou.md)。
+Connects to ParameciumU Gateway with **role=node**, declares `capabilities: ["sandbox"]`, runs `system.run` / `system.which` in an isolated workspace for `node.invoke`. See [docs/sandbox-openclaw-pimono-and-monou.md](../../docs/sandbox-openclaw-pimono-and-monou.md).
 
 ## 用法
 
@@ -11,7 +11,7 @@ export GATEWAY_URL=ws://127.0.0.1:9347
 # 可选：节点 ID（默认 sandbox-1），用于 node.list / node.invoke 目标
 export SANDBOX_NODE_ID=sandbox-1
 
-# 可选：沙箱工作目录，命令在此目录下执行；默认 os.tmpdir()/monou-sandbox-<nodeId>
+# Optional: sandbox workspace; commands run here. Default os.tmpdir()/paramecium-u-sandbox-<nodeId>
 export SANDBOX_WORKSPACE=./.sandbox
 
 # 可选：禁用 Docker 时用本机目录+子进程（默认用 Docker）

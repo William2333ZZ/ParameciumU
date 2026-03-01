@@ -9,7 +9,7 @@
  * 环境变量:
  *   GATEWAY_URL   Gateway WebSocket 地址（必填）
  *   AGENT_ID      注册的 agentId（必填）
- *   AGENT_DIR     该 agent 的目录，与 .u 同构（其下 cron/、skills/ 等；会话由 Gateway 管理），默认 process.cwd()/.u
+ *   AGENT_DIR     该 agent 的目录，与 .first_paramecium 同构（其下 cron/、skills/ 等；会话由 Gateway 管理），默认 process.cwd()/.first_paramecium
  *   DEVICE_ID     可选，默认本机 hostname
  *   GATEWAY_TOKEN / GATEWAY_PASSWORD  可选，与 Gateway 认证一致
  */
@@ -26,16 +26,16 @@ import { runAgentTurn } from "./agent-runner.js";
 
 /** Gateway WebSocket 地址；优先 GATEWAY_WS_URL（与 .env 一致），否则 GATEWAY_URL，未设则默认 9347 */
 const GATEWAY_URL = process.env.GATEWAY_WS_URL?.trim() || process.env.GATEWAY_URL?.trim() || "ws://127.0.0.1:9347";
-/** 未设时默认为 .u（本机默认 agent，对应 .u 目录） */
-const AGENT_ID = process.env.AGENT_ID?.trim() || ".u";
+/** 未设时默认为 .first_paramecium（本机默认 agent，对应 .first_paramecium 目录） */
+const AGENT_ID = process.env.AGENT_ID?.trim() || ".first_paramecium";
 const AGENT_DIR = process.env.AGENT_DIR?.trim() || process.env.AGENT_ROOT_DIR?.trim();
 /** 未设时用 hostname，使同机多 Agent 在节点图中聚为一台「设备」；设 DEVICE_ID=AGENT_ID 可恢复一 Agent 一节点 */
 const DEVICE_ID = process.env.DEVICE_ID?.trim() || os.hostname() || AGENT_ID;
 const TOKEN = process.env.GATEWAY_TOKEN?.trim();
 const PASSWORD = process.env.GATEWAY_PASSWORD?.trim();
 
-/** 与 .u 同构的 agent 目录（其下 cron/、skills/ 等）；未设则用 cwd/.u */
-const agentDir = AGENT_DIR != null ? path.resolve(AGENT_DIR) : path.join(process.cwd(), ".u");
+/** 与 .first_paramecium 同构的 agent 目录（其下 cron/、skills/ 等）；未设则用 cwd/.first_paramecium */
+const agentDir = AGENT_DIR != null ? path.resolve(AGENT_DIR) : path.join(process.cwd(), ".first_paramecium");
 const cronStorePath = path.join(agentDir, "cron", "jobs.json");
 
 /** 同一目录下只允许一个 agent 进程：用 pid 文件加锁，退出时释放 */

@@ -1,33 +1,40 @@
-# Gateway 连接与地址确认
+# Gateway address: confirming connectivity
 
-## 为何要确认地址
+## Why the address matters
 
-新 Agent 通过 agent-client 连接**用户本机**（跑 Gateway 的那台机器）的 Gateway，才能在 Control UI 里被看到和对话。**你（agent）**在启动 agent-client 前必须知道**本机 Gateway** 的 WebSocket 地址，否则无法连接。
+A new agent connects to the Gateway running on **your local machine** via `agent-client`. You must know the correct WebSocket address before starting `agent-client`, otherwise the agent cannot register and will not appear in Control UI.
 
-## 若是远程：必须先获取本机的 Gateway 地址
+## Local agent (same machine as Gateway)
 
-当新 Agent 跑在**远程**机器上时，它要连的是**本机**（用户这边、跑 Gateway 的机器），不是远程自己。因此：
+Use `ws://127.0.0.1:9347` (the default port for `npm run gateway`). If you changed the port, substitute accordingly.
 
-- **你**必须先拿到「本机 Gateway 对远程而言可达的地址」，再在远程执行 start-agent-client.sh 时把该地址赋给 `GATEWAY_URL`。
-- **本机地址**通常需要用户提供或确认，因为：
-  - 本机若只监听 `127.0.0.1`，远程无法直连；
-  - 远程要能连上，本机须用对远程可见的地址：例如本机内网 IP（`ws://192.168.x.x:18790`）、本机公网 IP + 端口、或本机做 SSH 反向隧道后远程用 `ws://127.0.0.1:18790`。
-- **你**在远程部署/创建完 Agent 后，**先向用户要本机 Gateway 地址**（例如：「远程 agent 要连你本机的 Gateway，请告诉我本机对这台远程机可达的地址，如 ws://你的内网IP:18790，或你已做的隧道方式」），拿到后再在远程执行连接脚本。
+## Remote agent (different machine from Gateway)
 
-## 如何得到 Gateway 地址（本机 / 默认）
+The remote machine must reach **your local Gateway**. `127.0.0.1` is not routable from another machine — you need one of:
 
-1. **向用户确认**（推荐）：若对话里用户没给过，**你**主动问：「Gateway 跑在你本机哪个地址？本机用默认端口的话是 `ws://127.0.0.1:18790`；若是**远程** agent，请给一个远程能访问到的本机地址，例如 `ws://你本机内网IP:18790`。」
-2. **用户已提供**：例如「Gateway 在 18790」「本机地址 ws://192.168.1.100:18790」——**你**据此拼出 `GATEWAY_URL`。
-3. **仅本机 Agent、默认**：新 Agent 和 Gateway 都在本机时，可用 `ws://127.0.0.1:18790`（或用户说过的其他端口）。**远程 Agent 不能**用 127.0.0.1，除非本机做了到远程的隧道。
+- **LAN IP**: start Gateway with `GATEWAY_HOST=0.0.0.0 npm run gateway`, then use `ws://<your-LAN-IP>:9347`. Run `scripts/get-local-gateway-url.sh` to print the correct URL.
+- **SSH reverse tunnel**: `ssh -R 9347:127.0.0.1:9347 REMOTE_USER@REMOTE_HOST` — on the remote machine set `GATEWAY_URL=ws://127.0.0.1:9347`.
+- **Public IP / VPN**: use the routable address and make sure the port is open.
 
-## 拼写规则
+When you do not have the address, ask the user: *"The remote agent needs to connect to your local Gateway. What address should it use? If using the default port, try `ws://<your-LAN-IP>:9347`."*
 
-- 格式：`ws://<host>:<port>`（明文）或 `wss://...`（TLS）。
-- **本机**跑 agent-client（和 Gateway 同一台机）：`ws://127.0.0.1:18790`（默认端口）。
-- **远程**跑 agent-client、连本机 Gateway：`GATEWAY_URL` 必须是**本机**对远程可达的地址（本机内网 IP、公网 IP 或隧道后的地址），例如 `ws://192.168.1.100:18790`；必要时**你**提醒用户在本机开端口、绑定 0.0.0.0 或做 SSH 反向隧道。
+## Getting the local LAN URL
 
-## 在技能中的用法
+Run from the monoU root:
 
-- 启动 agent-client 时，**你**必须传入或设置 `GATEWAY_URL`。
-- **获取本机 IP 供对方连接**：可执行 **scripts/get-local-gateway-url.sh [端口]**，脚本会打印本机 LAN IP 和对方应使用的 `GATEWAY_URL`（如 `ws://192.168.x.x:18790`），并提醒本机需用 `GATEWAY_HOST=0.0.0.0` 启动 Gateway 才能被同网段机器连接。
-- 可执行 **scripts/start-agent-client.sh**，通过环境变量传入 `GATEWAY_URL`、`AGENT_ID`、`AGENT_DIR`；若未设 `GATEWAY_URL`，脚本使用默认 `ws://127.0.0.1:18790` 并打印提示，**你**应事先向用户确认或使用用户给过的地址。
+```bash
+"$AGENT_DIR/skills/agent-creator/scripts/get-local-gateway-url.sh"
+# or with a custom port:
+"$AGENT_DIR/skills/agent-creator/scripts/get-local-gateway-url.sh" 9347
+```
+
+The script prints the local LAN IP and the `GATEWAY_URL` the remote should use, and reminds you to start Gateway with `GATEWAY_HOST=0.0.0.0`.
+
+## Format
+
+- Plain: `ws://<host>:<port>`
+- TLS: `wss://<host>:<port>`
+
+## Authentication
+
+If the Gateway requires a token or password, pass `GATEWAY_TOKEN` or `GATEWAY_PASSWORD` as environment variables to `agent-client`.

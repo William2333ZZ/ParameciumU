@@ -1,6 +1,6 @@
 # Browser Node
 
-以 **role=node** 连接 monoU Gateway，声明 `capabilities: ["browser"]`，用 Playwright WebKit 执行 `browser_fetch` 等，供 Agent 通过 node.invoke 做「执行 JS 后抓取页面」或后续自动化操作。
+Connects to ParameciumU Gateway with **role=node**, declares `capabilities: ["browser"]`, runs Playwright WebKit for `browser_fetch` etc.; Agent uses node.invoke for JS execution + page fetch or follow-up automation.
 
 其他 Agent 可通过 **node.list** 看到本节点带 `capabilities: ["browser"]`，从而知道有浏览器能力可用（类似 MCP 的发现）。
 
@@ -63,7 +63,7 @@ npm run build
 
 ```bash
 # 构建（在仓库根目录）
-docker build -t monou-browser-node -f apps/browser-node/Dockerfile apps/browser-node
+docker build -t paramecium-u-browser-node -f apps/browser-node/Dockerfile apps/browser-node
 
 # 运行（Gateway 需已启动，端口 9347；Mac/Windows 用 host.docker.internal 指宿主机）
 docker run --rm --init \
@@ -71,7 +71,7 @@ docker run --rm --init \
   -e BROWSER_HEADED=1 \
   -p 6080:6080 -p 5900:5900 \
   --add-host=host.docker.internal:host-gateway \
-  monou-browser-node
+  paramecium-u-browser-node
 ```
 
 浏览器打开 **http://localhost:6080/vnc.html** 即可看到容器内浏览器窗口。

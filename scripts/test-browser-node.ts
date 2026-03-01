@@ -103,18 +103,18 @@ async function run() {
   }
   ok("node.list 发现 Browser 节点: " + (browserNode.nodeId ?? browserNode.capabilities));
 
-  const uDir = path.join(ROOT, ".u");
-  const browserSkillDest = path.join(uDir, "skills", "browser_skill");
+  const agentDir = path.join(ROOT, ".first_paramecium");
+  const browserSkillDest = path.join(agentDir, "skills", "browser_skill");
   const browserSkillSrc = path.join(ROOT, "packages", "agent-template", "template", "skills", "browser_skill");
   if (fs.existsSync(browserSkillSrc)) {
     fs.mkdirSync(path.dirname(browserSkillDest), { recursive: true });
     fs.cpSync(browserSkillSrc, browserSkillDest, { recursive: true, force: true });
-    ok("已从模板同步 .u/skills/browser_skill（含 browser_fetch）");
+    ok("已从模板同步 .first_paramecium/skills/browser_skill（含 browser_fetch）");
   }
 
-  const hasBrowserSkill = fs.existsSync(path.join(ROOT, ".u", "skills", "browser_skill", "SKILL.md"));
+  const hasBrowserSkill = fs.existsSync(path.join(ROOT, ".first_paramecium", "skills", "browser_skill", "SKILL.md"));
   if (!hasBrowserSkill) {
-    console.log("  [SKIP] .u 下无 browser_skill，仅测 node.list");
+    console.log("  [SKIP] .first_paramecium 下无 browser_skill，仅测 node.list");
   } else {
     const { buildSessionFromU } = await import("@monou/agent-from-dir");
     const gatewayInvoke = (method: string, params: Record<string, unknown>) =>
@@ -124,7 +124,7 @@ async function run() {
         params,
         timeoutMs: method === "node.invoke" ? 30_000 : 15_000,
       });
-    const session = await buildSessionFromU(ROOT, { agentDir: uDir, gatewayInvoke });
+    const session = await buildSessionFromU(ROOT, { agentDir, gatewayInvoke });
     const hasBrowserTools = session.mergedTools.some((t) => t.name === "browser_nodes" || t.name === "browser_capabilities");
     const hasBrowserFetchTool = session.mergedTools.some((t) => t.name === "browser_fetch");
     if (!hasBrowserTools) {
@@ -143,7 +143,7 @@ async function run() {
         }
       }
     } else {
-      console.log("  [SKIP] .u/skills/browser_skill 无 browser_fetch 工具（可覆盖复制 template 以测试）");
+      console.log("  [SKIP] .first_paramecium/skills/browser_skill 无 browser_fetch 工具（可覆盖复制 template 以测试）");
     }
 
     const nodesResult = await session.executeTool("browser_nodes", {});

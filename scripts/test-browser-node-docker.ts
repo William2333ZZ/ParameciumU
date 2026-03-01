@@ -120,7 +120,7 @@ async function run() {
   }
 
   const uChild = spawn(process.execPath, [agentPath], {
-    env: { ...process.env, GATEWAY_URL: gwUrl, AGENT_ID: ".u", AGENT_DIR: path.join(ROOT, ".u") },
+    env: { ...process.env, GATEWAY_URL: gwUrl, AGENT_ID: ".first_paramecium", AGENT_DIR: path.join(ROOT, ".first_paramecium") },
     stdio: ["ignore", "pipe", "pipe"],
     cwd: ROOT,
   });

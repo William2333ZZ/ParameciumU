@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
-# 在远程 Windows 上通过计划任务启动 agent-client，使 SSH 断开后进程仍保留。
+# Start agent-client on a remote Windows machine using a scheduled task,
+# so the process survives SSH disconnection.
 #
-# 用法:
-#   REMOTE_USER=华为 REMOTE_HOST=192.168.213.108 AGENT_ID=win_agent2 \
-#   GATEWAY_URL=ws://192.168.211.189:18790 REMOTE_MONOU='C:\Users\华为\monoU' \
-#   [SSHPASS=密码] [KILL_FIRST=1] ./.u/skills/agent-creator/scripts/start-remote-windows-agent.sh
+# Usage:
+#   REMOTE_USER=<user> REMOTE_HOST=<host> \
+#   AGENT_ID=<agent_id> \
+#   GATEWAY_URL=ws://<local-address>:9347 \
+#   REMOTE_MONOU='C:\Users\<username>\monoU' \
+#   [SSHPASS=<password>] [KILL_FIRST=1] \
+#   "$AGENT_DIR/skills/agent-creator/scripts/start-remote-windows-agent.sh"
 #
-# 环境变量:
-#   REMOTE_USER        远程 SSH 用户名（必填）
-#   REMOTE_HOST        远程 IP 或主机名（必填）
-#   AGENT_ID           agentId，如 win_agent2（必填）
-#   GATEWAY_URL        Gateway 地址（必填）
-#   REMOTE_MONOU       远程 monoU 的 Windows 绝对路径，如 C:\Users\华为\monoU（必填）
-#   REMOTE_AGENT_DIR   远程 agent 目录；不设则用 REMOTE_MONOU\agents\AGENT_ID
-#   SSHPASS            可选，SSH 密码（本机需有 sshpass）
-#   KILL_FIRST         可选，设为 1 时先 taskkill /F /IM node.exe 再启动
+# Environment variables:
+#   REMOTE_USER        Remote SSH username (required).
+#   REMOTE_HOST        Remote IP or hostname (required).
+#   AGENT_ID           Agent ID, e.g. win_agent (required).
+#   GATEWAY_URL        Gateway WebSocket address (required).
+#   REMOTE_MONOU       Windows absolute path to monoU on the remote,
+#                      e.g. C:\Users\<username>\monoU (required).
+#   REMOTE_AGENT_DIR   Remote agent dir; defaults to REMOTE_MONOU\agents\AGENT_ID.
+#   SSHPASS            Optional SSH password (requires sshpass on local machine).
+#   KILL_FIRST         Set to 1 to kill any existing node.exe before starting.
 
 set -e
 REMOTE_USER="${REMOTE_USER:-}"
@@ -26,9 +31,9 @@ REMOTE_AGENT_DIR="${REMOTE_AGENT_DIR:-}"
 KILL_FIRST="${KILL_FIRST:-0}"
 
 if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_HOST" ] || [ -z "$AGENT_ID" ] || [ -z "$GATEWAY_URL" ] || [ -z "$REMOTE_MONOU" ]; then
-  echo "用法: REMOTE_USER=... REMOTE_HOST=... AGENT_ID=... GATEWAY_URL=... REMOTE_MONOU=... $0" >&2
-  echo "  REMOTE_MONOU 为远程 monoU 的 Windows 绝对路径，如 C:\\Users\\华为\\monoU" >&2
-  echo "  可选: REMOTE_AGENT_DIR=... SSHPASS=... KILL_FIRST=1" >&2
+  echo "Usage: REMOTE_USER=... REMOTE_HOST=... AGENT_ID=... GATEWAY_URL=... REMOTE_MONOU=... $0" >&2
+  echo "  REMOTE_MONOU: Windows absolute path to monoU on the remote, e.g. C:\\Users\\<username>\\monoU" >&2
+  echo "  Optional: REMOTE_AGENT_DIR=... SSHPASS=... KILL_FIRST=1" >&2
   exit 1
 fi
 
@@ -37,7 +42,6 @@ if [ -z "$REMOTE_AGENT_DIR" ]; then
 fi
 
 TASK_NAME="MonouAgent_${AGENT_ID}"
-# 远程用户主目录下的 monoU 子目录，用于 scp 目标（OpenSSH 下多为 ~/monoU）
 REMOTE_MONOU_SCP="monoU"
 BAT_NAME="start-${AGENT_ID}.bat"
 
@@ -52,7 +56,7 @@ while [ -n "$d" ] && [ "$d" != "/" ]; do
   d="$(dirname "$d")"
 done
 if [ -z "$MONOU_ROOT" ]; then
-  echo "MONOU_ROOT 未找到" >&2
+  echo "MONOU_ROOT not found." >&2
   exit 1
 fi
 
@@ -66,7 +70,7 @@ set AGENT_ID=${AGENT_ID}
 set AGENT_DIR=${REMOTE_AGENT_DIR}
 node apps\\gateway\\dist\\agent-client.js
 EOF
-echo "已生成 .bat: $BAT_PATH"
+echo "Generated .bat: $BAT_PATH"
 
 run_ssh() {
   if [ -n "$SSHPASS" ]; then
@@ -86,20 +90,19 @@ run_scp() {
 
 export SSHPASS
 
-echo "上传 .bat 到远程 ${REMOTE_MONOU_SCP}/..."
+echo "Uploading .bat to remote ${REMOTE_MONOU_SCP}/..."
 run_scp "$BAT_PATH" "${REMOTE_MONOU_SCP}/${BAT_NAME}"
 
-# 计划任务中 .bat 的 Windows 路径（用于 /tr）
 WIN_BAT_TR="${REMOTE_MONOU}\\${BAT_NAME}"
-echo "创建/覆盖计划任务 ${TASK_NAME}..."
+echo "Creating/updating scheduled task ${TASK_NAME}..."
 run_ssh "schtasks /create /tn \"${TASK_NAME}\" /tr \"${WIN_BAT_TR}\" /sc once /st 23:59 /sd 2030/01/01 /f"
 
 if [ "$KILL_FIRST" = "1" ]; then
-  echo "结束远程已有 node.exe..."
+  echo "Killing existing node.exe on remote..."
   run_ssh "taskkill /F /IM node.exe 2>nul" || true
 fi
 
-echo "运行计划任务..."
+echo "Triggering scheduled task..."
 run_ssh "schtasks /run /tn \"${TASK_NAME}\""
-echo "已触发远程启动；agent 应在数秒内连上 Gateway，Control UI 中可刷新节点列表。"
+echo "Done. The agent should connect to the Gateway within a few seconds. Refresh the node list in Control UI."
 rm -f "$BAT_PATH"

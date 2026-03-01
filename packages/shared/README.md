@@ -1,6 +1,6 @@
 # @monou/shared
 
-Shared types and utilities for the monou agent framework.
+Shared types and utilities for the ParameciumU agent framework.
 
 ## Usage
 

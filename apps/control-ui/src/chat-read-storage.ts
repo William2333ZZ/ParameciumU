@@ -1,6 +1,6 @@
 /** 纯前端已读：localStorage 存每个会话的上次已读时间 */
 
-const STORAGE_KEY = "monou_chat_last_read";
+const STORAGE_KEY = "paramecium_u_chat_last_read";
 
 export function getReadKey(agentId: string, sessionKey?: string): string {
 	return sessionKey?.trim() || `agent:${agentId}:main`;

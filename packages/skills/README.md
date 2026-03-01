@@ -13,7 +13,7 @@ Agent Skills: load SKILL.md from directories and format for system prompt (Agent
 - **agentDir** — Agent root (in ParameciumU, `.first_paramecium` or any same-structure dir). When `includeDefaults` is true, loads from `agentDir/skills`. Callers should pass this explicitly.
 - **cwd** — Working directory for resolving relative paths; default `process.cwd()`.
 - **skillPaths** — Extra paths (files or directories) to load.
-- **includeDefaults** — If true (default), load from `agentDir/skills` and, when `cwd` is set, from a legacy config dir under cwd (optional). For monoU, passing `agentDir` is enough.
+- **includeDefaults** — If true (default), load from `agentDir/skills` and, when `cwd` is set, from a legacy config dir under cwd (optional). For ParameciumU, passing `agentDir` is enough.
 
 ## Usage
 
@@ -46,4 +46,4 @@ Full instructions (markdown)...
 
 - Skill 目录下可有 `scripts/tools.js`（或 `tools.js`、`tools/index.js`），导出 `tools: AgentTool[]` 与可选的 `executeTool(name, args)`。
 - 使用方：`@monou/agent-sdk` 的 `loadToolsFromSkillDir` / `loadToolsFromSkillDirs(skillDirs)` 可加载并合并各 skill 的 tools 与 executeTool；或由 runner 直接 import 后传入 `createAgent({ tools })` 与 `runAgentTurnWithTools(..., executeTool)`。
-- 在 monoU 中，agent-from-dir 会从 agent 目录的各 skill 下加载 `scripts/tools.ts`（或 .js）并统一注册。
+- In ParameciumU, agent-from-dir loads from each skill under the agent dir `scripts/tools.ts`（或 .js）并统一注册。

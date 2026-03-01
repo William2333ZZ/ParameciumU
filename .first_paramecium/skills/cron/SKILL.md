@@ -1,51 +1,73 @@
 ---
 name: cron
-description: "定时任务管理：列出、创建、更新、删除、立即运行与查看状态。调度类型支持 at（一次性时间）、every（固定间隔）、cron（cron 表达式）。不依赖 openclaw；任务持久化在 .u/cron/jobs.json。"
+description: Manage scheduled tasks: list, create, update, delete, and immediately trigger jobs. Supports at (one-shot), every (fixed interval), and cron expression schedules. Two execution modes — agentTurn (LLM agent runs a turn) and systemEvent (no LLM, handled directly by the runtime). Use when the user wants to schedule something at a time or interval, view existing jobs, or manage cron tasks.
 ---
 
-# Cron（定时任务）
+# Cron
 
-管理定时任务：创建、列表、更新、删除、立即运行与查看状态。任务存储在本地 JSON，不依赖任何网关。
+Manage scheduled tasks stored in `cron/jobs.json`. Cron runs **inside the agent process** — no separate daemon needed. Start with `npm run agent` and the scheduler is already running.
 
-## 何时使用
+## Two payload kinds: when does the LLM get involved?
 
-- 用户要求「每天 9 点提醒」「每 30 分钟检查一次」「下周五 18:00 执行」等时，用 **cron_add** 创建任务。
-- 查看已有任务用 **cron_list**，查看调度器状态用 **cron_status**。
-- 修改或删除任务用 **cron_update**、**cron_remove**。
-- 需要立即执行一次时用 **cron_run**（仅更新运行时间与下次运行时间，不执行 agent；实际定时执行需外部调度器或系统 crontab）。
+This is the most important distinction when creating a job:
 
-## 调度类型（schedule）
+| `payload.kind` | Who executes it | Use when |
+|----------------|----------------|----------|
+| **`agentTurn`** | The LLM agent runs a full turn with `message` as input. Can use tools, reason, write to memory, push to Feishu. | Task requires reasoning: summarize news, analyze data, write a report, send a message based on conditions. |
+| **`systemEvent`** | No LLM. The runtime fires the event directly — heartbeat check, process monitoring, lightweight code execution. | Task is deterministic and doesn't need reasoning: confirm the agent is alive, check a process, run a script. |
 
-- **at**：一次性，ISO 时间字符串，如 `2026-02-15T09:00:00Z` 或 `2026-02-15`。
-- **every**：固定间隔，`everyMs` 毫秒，可选 `anchorMs`。
-- **cron**：标准 cron 表达式，如 `0 9 * * *`（每天 9:00），可选 `tz` 时区。
+**Heartbeat** is a built-in example of a `systemEvent`-style job: named `Heartbeat`, it runs periodically, reads `HEARTBEAT.md`, and skips the LLM turn if there is nothing to do — it just calls `agent.heartbeat` to report the agent is alive.
 
-## 工具
+## Schedule types
 
-### cron_status
+| kind | Fields | Example |
+|------|--------|---------|
+| `at` | `at`: ISO datetime string | `{ kind: "at", at: "2026-06-01T09:00:00Z" }` |
+| `every` | `everyMs`: interval in ms, optional `anchorMs` | `{ kind: "every", everyMs: 1800000 }` (every 30 min) |
+| `cron` | `expr`: cron expression, optional `tz` | `{ kind: "cron", expr: "0 9 * * *", tz: "Asia/Shanghai" }` |
 
-返回当前存储路径、任务数、下次唤醒时间（最小 nextRunAtMs）。
+## Tools
 
 ### cron_list
+List jobs sorted by next run time. Pass `includeDisabled: true` to include disabled jobs.
 
-列出任务，可选包含已禁用的。参数 `includeDisabled` 为 true 时包含禁用任务。
+### cron_status
+Return the store path, job count, and time until the next scheduled run.
 
 ### cron_add
+Create a job. Required: `name`, `schedule`, `payload`.
 
-创建任务。参数：`name`（必填）、`description`（可选）、`schedule`（必填，见上）、`payload`（必填：`{ kind: "systemEvent", text: "..." }` 或 `{ kind: "agentTurn", message: "..." }`）、`enabled`（可选，默认 true）、`deleteAfterRun`（可选，at 任务默认 true）。
+```
+// Reasoning task — agent turn
+{
+  name: "Daily summary",
+  schedule: { kind: "cron", expr: "0 20 * * *", tz: "Asia/Shanghai" },
+  payload: { kind: "agentTurn", message: "Summarize today's activity and write to memory." }
+}
+
+// System task — no LLM
+{
+  name: "Heartbeat",
+  schedule: { kind: "every", everyMs: 600000 },
+  payload: { kind: "systemEvent", text: "heartbeat" }
+}
+```
+
+Optional fields: `description`, `enabled` (default `true`), `deleteAfterRun` (default `true` for `at` jobs).
 
 ### cron_update
-
-更新任务。参数：`id`（必填）、`patch`（可选字段：name、description、enabled、schedule、payload、deleteAfterRun 等）。
+Update a job by `id`. Pass `patch` with any fields to change (name, description, enabled, schedule, payload, deleteAfterRun).
 
 ### cron_remove
-
-删除任务。参数：`id`（必填）。
+Delete a job by `id`.
 
 ### cron_run
+Immediately trigger a job's timing (updates `lastRunAtMs` and `nextRunAtMs`). Does not directly execute the agent turn — the agent process's scheduler handles actual execution on the next tick.  
+`mode`: `"force"` (default, run regardless of schedule) or `"due"` (only if due).
 
-立即“运行”一次任务（更新 lastRunAtMs、nextRunAtMs，不执行 agent）。参数：`id`（必填）、`mode`（可选，`force` 或 `due`，默认 `force`）。
+## Execution & storage
 
-## 存储
-
-任务文件路径由环境变量 `CRON_STORE` 指定，未设置时默认 `./.u/cron/jobs.json`。
+- **Execution**: runs inside `apps/agent` process. `runScheduler()` starts after Gateway connection and calls `runOneTurn(message)` for each due `agentTurn` job. `systemEvent` jobs are handled without LLM.
+- **Results delivery**: add `deliver: { connectorId, chatId }` to a job's payload to push the agent's reply to Feishu (or another connector) after each run.
+- **Storage**: `AGENT_DIR/cron/jobs.json`. Overridable with the `CRON_STORE` env var.
+- **Multi-agent**: each agent has its own `cron/jobs.json`. Gateway cron RPC accepts `agentId` to target a specific agent's store.

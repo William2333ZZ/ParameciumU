@@ -1,8 +1,7 @@
 /**
- * Memory skill：memory_search、memory_get、memory_store、memory_recall、memory_forget、memory_sync。
- * 工作区默认 ./.u（MEMORY.md、memory/*.md），或 MEMORY_WORKSPACE。
- * 可选 FTS5 索引（Node 22+ node:sqlite）存于 .u/memory/index.sqlite；可选向量混合检索（EMBEDDING_API_KEY）；
- * 可选会话转录索引（MEMORY_INDEX_SESSION=1，MEMORY_SESSION_PATH）。
+ * Memory skill: memory_search, memory_get, memory_store, memory_recall, memory_forget, memory_sync.
+ * Workspace: default ./.u (MEMORY.md, memory/*.md) or MEMORY_WORKSPACE.
+ * Optional FTS5 index at memory/index.sqlite (Node 22+); optional hybrid embedding; optional session transcript index.
  */
 
 import type { AgentTool } from "@monou/agent-core";
@@ -27,14 +26,14 @@ function getIndexPath(workspaceDir: string): string {
 	return join(workspaceDir, INDEX_DIR, INDEX_FILENAME);
 }
 
-/** 解析 MEMORY_EXTRA_PATHS（逗号分隔，相对工作区或绝对路径），用于 path 白名单与索引范围。 */
+/** Parse MEMORY_EXTRA_PATHS (comma-separated, relative or absolute) for path allowlist and index scope. */
 function getExtraPaths(workspaceDir: string): string[] {
 	const raw = process.env.MEMORY_EXTRA_PATHS?.trim();
 	if (!raw) return [];
 	return raw.split(",").map((p) => p.trim()).filter(Boolean);
 }
 
-/** 是否为允许的记忆路径：MEMORY.md、memory.md、memory/*.md、session/*.md（转录）或 extraPaths。 */
+/** Whether path is allowed: MEMORY.md, memory.md, memory/*.md, session/*.md (transcript), or extraPaths. */
 function isMemoryPath(relPath: string, workspaceDir: string): boolean {
 	const normalized = relPath.replace(/\\/g, "/");
 	if (normalized === "MEMORY.md" || normalized === "memory.md") return true;
@@ -117,7 +116,7 @@ function searchInFile(
 	return results;
 }
 
-// --- FTS5 索引（Node 22+ node:sqlite 可用时使用）---
+// --- FTS5 index (when Node 22+ node:sqlite available) ---
 
 type SqliteDb = { run: (sql: string, ...params: unknown[]) => void; all: (sql: string, ...params: unknown[]) => unknown[]; exec: (sql: string) => void };
 type SqliteMod = { default: { DatabaseSync: new (path: string) => SqliteDb } };
@@ -176,7 +175,7 @@ async function runSyncAsync(workspaceDir: string): Promise<{ ok: boolean; error?
 				);
 			}
 		}
-		// 可选：会话转录索引（实验性）。会话由 Gateway 管理，需显式设 MEMORY_SESSION_PATH 指向 transcript JSON（如 .gateway/sessions/transcripts/xxx.json）
+		// Optional: session transcript index (experimental). Set MEMORY_SESSION_PATH to transcript JSON (e.g. .gateway/sessions/transcripts/xxx.json).
 		if (process.env.MEMORY_INDEX_SESSION === "1" || process.env.MEMORY_INDEX_SESSION === "true") {
 			const sessionPathRaw = process.env.MEMORY_SESSION_PATH?.trim();
 			const sessionPath = sessionPathRaw ? resolve(sessionPathRaw) : undefined;
@@ -206,7 +205,7 @@ async function runSyncAsync(workspaceDir: string): Promise<{ ok: boolean; error?
 				}
 			}
 		}
-		// 可选：向量 embedding 写入 chunk_embeddings
+		// Optional: write embeddings to chunk_embeddings
 		if (isEmbeddingEnabled() && process.env.EMBEDDING_API_KEY?.trim()) {
 			const rows = db.all("SELECT path, start_line, end_line, content FROM chunks_fts") as Array<{
 				path: string;
@@ -261,7 +260,7 @@ async function searchFtsAsync(
 		return null;
 	}
 }
-// --- 向量 embedding（OpenAI 兼容 API）---
+// --- Vector embedding (OpenAI-compatible API) ---
 
 function isEmbeddingEnabled(): boolean {
 	return process.env.MEMORY_EMBEDDING_ENABLED === "1" || process.env.MEMORY_EMBEDDING_ENABLED === "true";
@@ -301,7 +300,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 	return norm === 0 ? 0 : dot / norm;
 }
 
-/** 从 DB 加载所有 chunk 的 embedding，返回 [{ path, startLine, endLine, content, embedding }]。 */
+/** Load all chunk embeddings from DB; return [{ path, startLine, endLine, content, embedding }]. */
 async function loadEmbeddingsAsync(indexPath: string): Promise<Array<{ path: string; startLine: number; endLine: number; content: string; embedding: number[] }> | null> {
 	const mod = await loadSqlite();
 	if (!mod) return null;
@@ -329,7 +328,7 @@ async function loadEmbeddingsAsync(indexPath: string): Promise<Array<{ path: str
 	}
 }
 
-/** 从索引读取 session 路径内容（session/transcript.md 等非磁盘文件）。 */
+/** Read session path content from index (e.g. session/transcript.md, not on disk). */
 async function getSessionContentFromIndex(
 	indexPath: string,
 	relPath: string,
@@ -359,7 +358,7 @@ async function getSessionContentFromIndex(
 	}
 }
 
-/** 向量检索：query 取 embedding，与所有 chunk 算余弦相似度，取 top maxResults。 */
+/** Vector search: embed query, cosine similarity with all chunks, return top maxResults. */
 async function searchVectorAsync(
 	indexPath: string,
 	query: string,
@@ -380,7 +379,7 @@ async function searchVectorAsync(
 	}));
 }
 
-/** 混合合并：ftsResults 与 vectorResults 按 (path, startLine, endLine) 合并，权重 vectorWeight/textWeight。 */
+/** Hybrid merge: combine ftsResults and vectorResults by (path, startLine, endLine) with vectorWeight/textWeight. */
 function mergeHybrid(
 	ftsResults: Array<{ path: string; startLine: number; endLine: number; snippet: string; score: number }>,
 	vectorResults: Array<{ path: string; startLine: number; endLine: number; snippet: string; score: number }>,
@@ -406,73 +405,73 @@ function mergeHybrid(
 	return [...merged.values()].sort((a, b) => b.score - a.score).slice(0, maxResults);
 }
 
-// --- 工具定义 ---
+// --- Tool definitions ---
 
 export const tools: AgentTool[] = [
 	{
 		name: "memory_search",
 		description:
-			"在工作区 MEMORY.md 与 memory/*.md 中按关键词搜索。回答关于过往决策、偏好、日期、人物或待办前应先调用此工具。若有 FTS5 索引则用全文检索，否则回退到文件扫描。",
+			"Search MEMORY.md and memory/*.md by keyword. Call before answering about past decisions, preferences, dates, people, or todos. Uses FTS5 index if present, else file scan.",
 		parameters: {
 			type: "object",
 			properties: {
-				query: { type: "string", description: "搜索词或短语" },
-				maxResults: { type: "number", description: "最多返回条数，默认 10" },
+				query: { type: "string", description: "Search phrase" },
+				maxResults: { type: "number", description: "Max results, default 10" },
 			},
 			required: ["query"],
 		},
 	},
 	{
 		name: "memory_get",
-		description: "按 path 与可选行范围读取记忆文件片段。在 memory_search 之后按需使用以控制上下文大小。仅允许 MEMORY.md、memory.md、memory/*.md 及 MEMORY_EXTRA_PATHS 内路径。",
+		description: "Read a slice of a memory file by path and optional line range. Use after memory_search to control context size. Paths allowed: MEMORY.md, memory.md, memory/*.md, MEMORY_EXTRA_PATHS.",
 		parameters: {
 			type: "object",
 			properties: {
-				path: { type: "string", description: "相对工作区的路径，如 MEMORY.md、memory/2025-02-10.md" },
-				from: { type: "number", description: "起始行号（1-based）" },
-				lines: { type: "number", description: "读取行数" },
+				path: { type: "string", description: "Path relative to workspace, e.g. MEMORY.md, memory/2025-02-10.md" },
+				from: { type: "number", description: "Start line (1-based)" },
+				lines: { type: "number", description: "Number of lines to read" },
 			},
 			required: ["path"],
 		},
 	},
 	{
 		name: "memory_store",
-		description: "将一条持久记忆追加到 MEMORY.md 的 ## Store 区块或当日 memory/YYYY-MM-DD.md。用于「记住这个」类请求。",
+		description: "Append a persistent memory to MEMORY.md ## Store or today's memory/YYYY-MM-DD.md. Use for 'remember this' requests.",
 		parameters: {
 			type: "object",
 			properties: {
-				text: { type: "string", description: "要存储的记忆内容" },
-				target: { type: "string", description: "longterm（写入 MEMORY.md）或 daily（写入当日 memory/YYYY-MM-DD.md），默认 longterm" },
+				text: { type: "string", description: "Content to store" },
+				target: { type: "string", description: "longterm (MEMORY.md) or daily (today's memory/YYYY-MM-DD.md), default longterm" },
 			},
 			required: ["text"],
 		},
 	},
 	{
 		name: "memory_recall",
-		description: "与 memory_search 语义相同：在工作区记忆文件中搜索。回答与历史、决策、偏好相关的问题前可先调用 memory_recall 或 memory_search。",
+		description: "Same as memory_search: search workspace memory files. Call before answering about history, decisions, or preferences.",
 		parameters: {
 			type: "object",
 			properties: {
-				query: { type: "string", description: "搜索词或短语" },
-				maxResults: { type: "number", description: "最多返回条数，默认 10" },
+				query: { type: "string", description: "Search phrase" },
+				maxResults: { type: "number", description: "Max results, default 10" },
 			},
 			required: ["query"],
 		},
 	},
 	{
 		name: "memory_forget",
-		description: "将一条「待遗忘」记录追加到 MEMORY.md 的 ## Forgotten 区块，供人工审阅或后续过滤。不删除原内容，仅做标记。",
+		description: "Append a 'to forget' entry to MEMORY.md ## Forgotten for human review or later filtering. Does not delete original content.",
 		parameters: {
 			type: "object",
 			properties: {
-				text: { type: "string", description: "要标记遗忘的内容或简述" },
+				text: { type: "string", description: "Brief description of what to mark as forgotten" },
 			},
 			required: ["text"],
 		},
 	},
 	{
 		name: "memory_sync",
-		description: "重建 FTS5 全文索引（.u/memory/index.sqlite）。在大量修改 MEMORY.md 或 memory/*.md 后调用可提升 memory_search 速度与准确性。需 Node 22+。",
+		description: "Rebuild FTS5 index (memory/index.sqlite). Call after bulk edits to improve memory_search. Requires Node 22+.",
 		parameters: { type: "object", properties: {} },
 	},
 ];

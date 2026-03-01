@@ -2,7 +2,7 @@
 
 /**
  * Syncs all @monou/* package and app dependency versions to match current versions.
- * Lockstep versioning across the monorepo.
+ * Lockstep versioning across the ParameciumU monorepo.
  */
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";

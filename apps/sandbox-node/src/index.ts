@@ -9,7 +9,7 @@
  * 环境变量:
  *   GATEWAY_URL       Gateway WebSocket 地址（必填）
  *   SANDBOX_NODE_ID   本节点 ID，用于 node.list / node.invoke 目标（默认 sandbox-1）
- *   SANDBOX_WORKSPACE 沙箱工作目录，命令在此目录下执行（默认 os.tmpdir()/monou-sandbox-<nodeId>）
+ *   SANDBOX_WORKSPACE sandbox workspace; commands run here (default os.tmpdir()/paramecium-u-sandbox-<nodeId>)
  *   SANDBOX_USE_DOCKER 默认 1（Docker 容器执行，与 OpenClaw 一致）；设为 0 时退化为本机目录+子进程
  *   SANDBOX_IMAGE      Docker 模式下的镜像（默认 debian:bookworm-slim）
  *   GATEWAY_TOKEN / GATEWAY_PASSWORD  可选认证
@@ -41,7 +41,7 @@ if (!GATEWAY_URL) {
 }
 
 const workspaceDir =
-	WORKSPACE_ENV != null ? path.resolve(WORKSPACE_ENV) : path.join(os.tmpdir(), `monou-sandbox-${NODE_ID}`);
+	WORKSPACE_ENV != null ? path.resolve(WORKSPACE_ENV) : path.join(os.tmpdir(), `paramecium-u-sandbox-${NODE_ID}`);
 
 const sandboxContainerName = USE_DOCKER ? getSandboxContainerName(NODE_ID) : null;
 let containerReady = false;

@@ -1,32 +1,33 @@
 #!/usr/bin/env bash
-# 启动 agent-client，连接指定 Gateway，使新 Agent 在 Control UI 可见。
-# 必须先确认 Gateway 地址（见 references/gateway-connect.md）；未设置时使用默认 ws://127.0.0.1:9347（与 .env GATEWAY_WS_URL 一致）。
+# Start agent-client and connect to the Gateway, making the agent visible in Control UI.
+# Confirm the Gateway address before running (see references/gateway-connect.md).
+# If GATEWAY_URL is not set, the script tries GATEWAY_WS_URL from MONOU_ROOT/.env,
+# then falls back to ws://127.0.0.1:9347.
 #
-# 用法:
-#   GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=pilot AGENT_DIR=/path/to/agent node ...
-#  或本脚本（未设 GATEWAY_URL 时会尝试从 MONOU_ROOT/.env 读取 GATEWAY_WS_URL）：
-#   GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=pilot AGENT_DIR=/path/to/agent ./start-agent-client.sh
+# Usage:
+#   GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=my_agent AGENT_DIR=/path/to/agent ./start-agent-client.sh
 #
-# 环境变量:
-#   GATEWAY_URL  Gateway WebSocket 地址（未设则用 GATEWAY_WS_URL 或默认 ws://127.0.0.1:9347）
-#   AGENT_ID     注册到 Gateway 的 agentId（必填）
-#   AGENT_DIR    该 Agent 目录绝对路径，与 .u 同构（必填）
-#   DEVICE_ID    可选，默认本机 hostname（同机多 Agent 会聚成「一个设备节点」；设成 AGENT_ID 则一 Agent 一节点）
-#   MONOU_ROOT   monoU 仓库根目录；未设则自动向上查找含 apps/gateway 的目录
-#   GATEWAY_TOKEN / GATEWAY_PASSWORD  可选，Gateway 认证
+# Environment variables:
+#   GATEWAY_URL       Gateway WebSocket address (falls back to GATEWAY_WS_URL or ws://127.0.0.1:9347).
+#   AGENT_ID          Agent ID to register with the Gateway (required).
+#   AGENT_DIR         Absolute path to the agent directory — same structure as .first_paramecium (required).
+#   DEVICE_ID         Optional. Defaults to hostname. Agents sharing a DEVICE_ID are grouped as one
+#                     device node in the topology view. Set DEVICE_ID=$AGENT_ID for one node per agent.
+#   MONOU_ROOT        monoU repo root; auto-detected from script location if not set.
+#   GATEWAY_TOKEN /
+#   GATEWAY_PASSWORD  Optional Gateway authentication.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATEWAY_URL="${GATEWAY_URL:-}"
 AGENT_ID="${AGENT_ID:-}"
 AGENT_DIR="${AGENT_DIR:-}"
-# 默认 DEVICE_ID=hostname，使同机多 Agent 在节点图中聚为一台「设备」
 DEVICE_ID="${DEVICE_ID:-$(hostname 2>/dev/null || echo 'local')}"
 MONOU_ROOT="${MONOU_ROOT:-}"
 
 if [ -z "$AGENT_ID" ] || [ -z "$AGENT_DIR" ]; then
-  echo "用法: GATEWAY_URL=ws://... AGENT_ID=<id> AGENT_DIR=<绝对路径> $0" >&2
-  echo "  GATEWAY_URL 未设时使用 .env 的 GATEWAY_WS_URL 或默认 ws://127.0.0.1:9347" >&2
+  echo "Usage: GATEWAY_URL=ws://... AGENT_ID=<id> AGENT_DIR=<absolute-path> $0" >&2
+  echo "  GATEWAY_URL defaults to GATEWAY_WS_URL from .env or ws://127.0.0.1:9347" >&2
   exit 1
 fi
 
@@ -50,16 +51,18 @@ if [ -z "$GATEWAY_URL" ]; then
   fi
   GATEWAY_URL="${GATEWAY_URL:-$GATEWAY_WS_URL}"
   GATEWAY_URL="${GATEWAY_URL:-ws://127.0.0.1:9347}"
-  echo "未设置 GATEWAY_URL，使用: $GATEWAY_URL（可在 .env 设 GATEWAY_WS_URL）" >&2
+  echo "GATEWAY_URL not set; using: $GATEWAY_URL (set GATEWAY_WS_URL in .env to change the default)" >&2
 fi
+
 if [ -z "$MONOU_ROOT" ] || [ ! -d "$MONOU_ROOT" ]; then
-  echo "MONOU_ROOT 未找到，请设置 MONOU_ROOT 为 monoU 仓库根目录" >&2
+  echo "MONOU_ROOT not found. Set MONOU_ROOT to the monoU repo root." >&2
   exit 1
 fi
 
 CLIENT_JS="$MONOU_ROOT/apps/gateway/dist/agent-client.js"
 if [ ! -f "$CLIENT_JS" ]; then
-  echo "未找到 agent-client: $CLIENT_JS，请先在 monoU 根目录执行 npm run build" >&2
+  echo "agent-client not found: $CLIENT_JS" >&2
+  echo "Run 'npm run build' in the monoU root first." >&2
   exit 1
 fi
 

@@ -1,6 +1,11 @@
 /**
  * Cron skill tools: cron_status, cron_list, cron_add, cron_update, cron_remove, cron_run.
- * Uses @monou/cron only; no openclaw dependency.
+ *
+ * Two payload kinds:
+ *   - agentTurn: triggers a full LLM agent turn with payload.message as input.
+ *   - systemEvent: no LLM involvement; handled directly by the runtime (heartbeat, process checks, etc.).
+ *
+ * Execution runs inside the agent process (apps/agent); no separate daemon required.
  */
 
 import type { AgentTool } from "@monou/agent-core";
@@ -17,7 +22,8 @@ function getStore(): CronStore {
 export const tools: AgentTool[] = [
 	{
 		name: "cron_status",
-		description: "返回定时任务存储路径、任务数、下次唤醒时间。",
+		description:
+			"Return the cron store path, total job count, and time until the next scheduled run.",
 		parameters: {
 			type: "object",
 			properties: {},
@@ -26,13 +32,14 @@ export const tools: AgentTool[] = [
 	},
 	{
 		name: "cron_list",
-		description: "列出定时任务（按下次运行时间排序）。可选包含已禁用的任务。",
+		description:
+			"List scheduled jobs sorted by next run time. Pass includeDisabled: true to include disabled jobs.",
 		parameters: {
 			type: "object",
 			properties: {
 				includeDisabled: {
 					type: "boolean",
-					description: "为 true 时包含已禁用的任务",
+					description: "Include disabled jobs. Default false.",
 				},
 			},
 			required: [],
@@ -41,38 +48,42 @@ export const tools: AgentTool[] = [
 	{
 		name: "cron_add",
 		description:
-			"创建定时任务。schedule: at(一次性) / every(间隔毫秒) / cron(表达式+可选tz)。payload: systemEvent(text) 或 agentTurn(message)。",
+			"Create a scheduled job. schedule: at (one-shot ISO time) / every (fixed interval ms) / cron (expression + optional tz). payload.kind: 'agentTurn' triggers an LLM turn with payload.message; 'systemEvent' fires without LLM (heartbeat, process checks).",
 		parameters: {
 			type: "object",
 			properties: {
-				name: { type: "string", description: "任务名称（必填）" },
-				description: { type: "string", description: "任务描述" },
+				name: { type: "string", description: "Job name (required)." },
+				description: { type: "string", description: "Optional description." },
 				schedule: {
 					type: "object",
 					description:
-						"调度：{ kind: 'at', at: 'ISO时间' } | { kind: 'every', everyMs: number } | { kind: 'cron', expr: string, tz?: string }",
+						"{ kind: 'at', at: 'ISO-datetime' } | { kind: 'every', everyMs: number, anchorMs?: number } | { kind: 'cron', expr: string, tz?: string }",
 				},
 				payload: {
 					type: "object",
 					description:
-						"负载：{ kind: 'systemEvent', text: string } 或 { kind: 'agentTurn', message: string }",
+						"{ kind: 'agentTurn', message: string } — LLM runs a turn with this message. OR { kind: 'systemEvent', text: string } — no LLM; runtime handles directly (use for heartbeat, process checks, etc.).",
 				},
-				enabled: { type: "boolean", description: "是否启用，默认 true" },
-				deleteAfterRun: { type: "boolean", description: "at 任务跑完后是否删除" },
+				enabled: { type: "boolean", description: "Enable job on creation. Default true." },
+				deleteAfterRun: {
+					type: "boolean",
+					description: "Delete after running once. Default true for 'at' jobs.",
+				},
 			},
 			required: ["name", "schedule", "payload"],
 		},
 	},
 	{
 		name: "cron_update",
-		description: "更新定时任务。",
+		description: "Update a job by id. Pass patch with any fields to change.",
 		parameters: {
 			type: "object",
 			properties: {
-				id: { type: "string", description: "任务 id（必填）" },
+				id: { type: "string", description: "Job id (required)." },
 				patch: {
 					type: "object",
-					description: "要更新的字段：name、description、enabled、schedule、payload、deleteAfterRun 等",
+					description:
+						"Fields to update: name, description, enabled, schedule, payload, deleteAfterRun, etc.",
 				},
 			},
 			required: ["id"],
@@ -80,25 +91,26 @@ export const tools: AgentTool[] = [
 	},
 	{
 		name: "cron_remove",
-		description: "删除定时任务。",
+		description: "Delete a scheduled job by id.",
 		parameters: {
 			type: "object",
 			properties: {
-				id: { type: "string", description: "任务 id（必填）" },
+				id: { type: "string", description: "Job id (required)." },
 			},
 			required: ["id"],
 		},
 	},
 	{
 		name: "cron_run",
-		description: "立即运行一次任务（更新运行时间与下次运行时间，不执行 agent）。",
+		description:
+			"Immediately advance a job's timing (updates lastRunAtMs and nextRunAtMs). Does not directly invoke the agent turn — the in-process scheduler handles actual execution on the next tick. mode: 'force' (default) runs regardless of schedule; 'due' only if the job is due.",
 		parameters: {
 			type: "object",
 			properties: {
-				id: { type: "string", description: "任务 id（必填）" },
+				id: { type: "string", description: "Job id (required)." },
 				mode: {
 					type: "string",
-					description: "force 或 due，默认 force",
+					description: "'force' (default) or 'due'.",
 					enum: ["force", "due"],
 				},
 			},
@@ -154,7 +166,7 @@ export async function executeTool(
 				if (!message)
 					return { content: "payload.message is required for agentTurn", isError: true };
 			} else {
-				return { content: "payload.kind must be systemEvent or agentTurn", isError: true };
+				return { content: "payload.kind must be 'agentTurn' or 'systemEvent'", isError: true };
 			}
 			const job = await store.add({
 				name: nameVal,

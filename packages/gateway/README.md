@@ -1,6 +1,6 @@
 # @monou/gateway
 
-Gateway 协议类型与客户端，供 CLI/TUI 或其他应用调用 monoU Gateway。
+Gateway protocol types and client for CLI/TUI or other apps to call ParameciumU Gateway.
 
 - **protocol**：`GatewayRequest`、`GatewayResponse`、`GatewayEvent`、`GATEWAY_METHODS`、`GATEWAY_EVENTS`、`ConnectIdentity`
 - **client**：`callGateway({ url, method, params, timeoutMs })` — 单次 WebSocket RPC

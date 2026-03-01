@@ -1,7 +1,7 @@
 {
   "name": "@monou/tui-app",
   "version": "0.1.0",
-  "description": "monoU TUI — 终端客户端，连接 Gateway 对话与 Cron（OpenClaw 风格）",
+  "description": "ParameciumU TUI — terminal client for Gateway chat and Cron (OpenClaw-style)",
   "type": "module",
   "main": "./dist/index.js",
   "bin": { "monou-tui": "./dist/index.js" },

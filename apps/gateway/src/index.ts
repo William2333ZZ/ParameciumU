@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * monoU Gateway — 常驻 WebSocket 服务：health、cron.*、connect、agents、sessions、agent、node.*
+ * ParameciumU Gateway — WebSocket server：health、cron.*、connect、agents、sessions、agent、node.*
  *
- * 用法: npx monou-gateway 或 npm run gateway
+ * Usage: npx monou-gateway or npm run gateway
  * 环境变量:
  *   GATEWAY_PORT=9347
  *   GATEWAY_DATA_DIR= 或 GATEWAY_STATE_DIR= 覆盖数据目录（默认 ./.gateway）
@@ -125,7 +125,7 @@ function createScreenshotRequestHandler(
 function logListen(port: number, host: string): void {
 	const scheme = tlsConfig ? "wss" : "ws";
 	const hostname = os.hostname();
-	console.log(`monoU Gateway ${scheme}://${host}:${port} (hostname: ${hostname})`);
+	console.log(`ParameciumU Gateway ${scheme}://${host}:${port} (hostname: ${hostname})`);
 	console.log(`  data dir: ${GATEWAY_DATA_DIR}`);
 	console.log(`  cron store: ${storePath}`);
 	if (auth && (auth.token != null || auth.password != null))

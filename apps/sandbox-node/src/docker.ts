@@ -119,7 +119,7 @@ export async function runInContainer(params: {
 
 export function getSandboxContainerName(nodeId: string): string {
 	const slug = slugify(nodeId);
-	const name = `monou-sandbox-${slug}`;
+	const name = `paramecium-u-sandbox-${slug}`;
 	return name.slice(0, 63);
 }
 

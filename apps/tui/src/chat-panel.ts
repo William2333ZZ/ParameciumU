@@ -106,7 +106,7 @@ export class ChatPanel extends Container implements Component {
 		const sessionLabel = formatSessionKey(this.sessionKey);
 		const agentLabel = this.defaultAgentId || ".u";
 		this.headerText.setText(
-			theme.header(`monou tui - ${this.gw.url} - agent ${agentLabel} - session ${sessionLabel}`),
+			theme.header(`ParameciumU TUI - ${this.gw.url} - agent ${agentLabel} - session ${sessionLabel}`),
 		);
 	}
 
