@@ -195,6 +195,7 @@ function InviteToGroupModal({
   );
 }
 
+/** 工具调用卡片：参考 Cursor 展示形式，整卡可折叠，摘要行显示 图标 + 工具名 + 状态 */
 function ToolCard({
   call,
   result,
@@ -207,32 +208,52 @@ function ToolCard({
   const args = call.arguments != null && call.arguments !== "" ? call.arguments : null;
   const parsed = args ? tryParseArgs(args) : null;
   const hasArgs = args && args.trim().length > 0;
+  const state = result ? (result.isError ? "error" : "done") : "pending";
+  const statusLabel = state === "pending" ? "执行中" : result?.isError ? "错误" : "完成";
+  /** 有结果时默认折叠，保持列表紧凑；执行中时展开便于看到参数 */
+  const defaultOpen = state === "pending";
   return (
-    <div className="tool-card" data-state={result ? (result.isError ? "error" : "done") : "pending"}>
-      <div className="tool-card-header">
-        <span className="tool-card-icon" aria-hidden>◇</span>
+    <details className={`tool-card tool-card--cursor-like`} data-state={state} open={defaultOpen}>
+      <summary className="tool-card-summary">
+        <span className="tool-card-icon" aria-hidden>
+          <CursorToolIcon state={state} />
+        </span>
         <span className="tool-card-name">{call.name}</span>
-      </div>
-      {hasArgs && (
-        <details className="tool-card-args-wrap">
-          <summary>参数</summary>
-          <pre className="tool-card-args">
-            {typeof parsed === "object" && parsed !== null
-              ? JSON.stringify(parsed, null, 2)
-              : args}
-          </pre>
-        </details>
-      )}
-      {result != null && (
-        <div className={`tool-card-result ${result.isError ? "error" : ""}`}>
-          <span className="tool-card-result-label">{result.isError ? "错误" : "返回"}</span>
-          <div className="tool-card-result-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{result.text || "—"}</ReactMarkdown>
+        <span className="tool-card-status" data-state={state}>
+          {statusLabel}
+        </span>
+        <span className="tool-card-chevron" aria-hidden />
+      </summary>
+      <div className="tool-card-body">
+        {hasArgs && (
+          <details className="tool-card-args-wrap" open={state === "pending"}>
+            <summary>参数</summary>
+            <pre className="tool-card-args">
+              {typeof parsed === "object" && parsed !== null
+                ? JSON.stringify(parsed, null, 2)
+                : args}
+            </pre>
+          </details>
+        )}
+        {result != null && (
+          <div className={`tool-card-result ${result.isError ? "error" : ""}`}>
+            <span className="tool-card-result-label">{result.isError ? "错误" : "返回"}</span>
+            <div className="tool-card-result-body">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+                {result.text || "—"}
+              </ReactMarkdown>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </details>
   );
+}
+
+function CursorToolIcon({ state }: { state: "pending" | "done" | "error" }) {
+  if (state === "pending") return <span className="tool-icon-pending">◇</span>;
+  if (state === "error") return <span className="tool-icon-error">!</span>;
+  return <span className="tool-icon-done">✓</span>;
 }
 
 function ChatMessageBlock({ block }: { block: DisplayBlock }) {
@@ -245,16 +266,27 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
   }
   if (block.kind === "toolResult") {
     const msg = block.msg as ToolResultMessage;
+    const state = msg.isError ? "error" : "done";
     return (
-      <div className={`tool-card tool-card--result-only ${msg.isError ? "error" : ""}`} data-state={msg.isError ? "error" : "done"}>
-        <div className="tool-card-header">
-          <span className="tool-card-icon" aria-hidden>◇</span>
+      <details className={`tool-card tool-card--cursor-like tool-card--result-only`} data-state={state}>
+        <summary className="tool-card-summary">
+          <span className="tool-card-icon" aria-hidden>
+            <CursorToolIcon state={state} />
+          </span>
           <span className="tool-card-name">{msg.isError ? "工具错误" : "工具返回"}</span>
+          <span className="tool-card-status" data-state={state}>
+            {msg.isError ? "错误" : "完成"}
+          </span>
+          <span className="tool-card-chevron" aria-hidden />
+        </summary>
+        <div className="tool-card-body">
+          <div className="tool-card-result-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {msg.text || "—"}
+            </ReactMarkdown>
+          </div>
         </div>
-        <div className="tool-card-result-body">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text || "—"}</ReactMarkdown>
-        </div>
-      </div>
+      </details>
     );
   }
   if (block.kind === "agent") {

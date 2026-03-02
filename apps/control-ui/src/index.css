@@ -421,7 +421,7 @@ a {
 }
 .chat-msg-content th { background: var(--bg); }
 
-/* 工具调用：成组卡片，调用 + 参数 + 返回一体 */
+/* 工具调用：参考 Cursor 展示，整卡可折叠，摘要行 图标 + 工具名 + 状态 + 展开箭头 */
 .tool-group {
   align-self: flex-start;
   width: 100%;
@@ -459,6 +459,80 @@ a {
   border-left: 3px solid var(--error);
 }
 
+/* Cursor 式：整卡为 details，summary 为可点击的摘要行 */
+.tool-card--cursor-like {
+  list-style: none;
+}
+.tool-card--cursor-like::-webkit-details-marker,
+.tool-card--cursor-like::marker {
+  display: none;
+}
+
+.tool-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid transparent;
+  font-size: 0.875rem;
+}
+.tool-card[open] .tool-card-summary {
+  border-bottom-color: var(--border);
+}
+.tool-card-summary:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tool-card-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.75rem;
+  opacity: 0.95;
+  width: 1.1em;
+  text-align: center;
+}
+.tool-icon-done { color: var(--success); }
+.tool-icon-error { color: var(--error); font-weight: 700; }
+.tool-icon-pending { color: var(--muted); }
+
+.tool-card-name {
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-card-status {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tool-card-status[data-state="done"] { color: var(--success); }
+.tool-card-status[data-state="error"] { color: var(--error); }
+
+.tool-card-chevron {
+  flex-shrink: 0;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  margin-bottom: 0.15rem;
+  transition: transform 0.15s ease;
+}
+.tool-card[open] .tool-card-chevron {
+  transform: rotate(-135deg);
+  margin-bottom: -0.2rem;
+}
+
+.tool-card-body {
+  padding: 0;
+}
+
 .tool-card-header {
   display: flex;
   align-items: center;
@@ -466,17 +540,6 @@ a {
   padding: 0.5rem 0.75rem;
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid var(--border);
-}
-
-.tool-card-icon {
-  color: var(--accent);
-  font-size: 0.75rem;
-  opacity: 0.9;
-}
-
-.tool-card-name {
-  font-weight: 600;
-  color: var(--text);
 }
 
 .tool-card-args-wrap {
@@ -527,6 +590,8 @@ a {
 .tool-card-result-body {
   font-size: 0.85rem;
   line-height: 1.45;
+  max-height: 20rem;
+  overflow-y: auto;
 }
 
 .tool-card-result-body p:first-child { margin-top: 0; }
@@ -541,6 +606,10 @@ a {
   overflow: auto;
 }
 .tool-card-result-body code { font-size: 0.9em; background: var(--bg); padding: 0.1em 0.25em; border-radius: 3px; }
+
+.tool-card--result-only .tool-card-body .tool-card-result-body {
+  padding: 0.5rem 0.75rem;
+}
 
 /* 对话中 Markdown 图像（如 browser_fetch 截图），支持 data URL，图像模态 */
 .chat-markdown-img {
