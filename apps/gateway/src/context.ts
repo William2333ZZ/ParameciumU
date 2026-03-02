@@ -49,6 +49,8 @@ export type GatewayContext = {
   connections: Map<string, ConnectionEntry>;
   /** node.invoke 请求 id -> resolve(result) */
   pendingInvokes: Map<string, (result: unknown) => void>;
+  /** file.upload 请求 id -> resolve({ path }) / reject */
+  pendingFileUploads: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>;
   /** Connector 转发映射：入站/派发时 resolve 得到 agentId + nodeId（可持久化到 .gateway/mappings.json） */
   connectorMappings: ConnectorMapping[];
   /** 将 connectorMappings 写回磁盘（.gateway），由 index 在启动时注入 */
@@ -114,6 +116,7 @@ export function createGatewayContext(opts: {
     startedAt: Date.now(),
     connections: new Map(),
     pendingInvokes: new Map(),
+    pendingFileUploads: new Map(),
     connectorMappings: opts.initialConnectorMappings ?? [],
     nextConnId: () => `conn-${++connSeq}-${Date.now()}`,
     nextInvokeId: () => `inv-${++invokeSeq}-${Date.now()}`,

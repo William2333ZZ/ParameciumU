@@ -79,6 +79,13 @@ function tryParseArgs(args?: string): unknown {
   }
 }
 
+/** 对话中展示时把「已上传文件」长路径缩短为「(已上传: 文件名)」，避免刷屏且保护路径 */
+function shortenUploadHintInMessage(text: string): string {
+  let out = text.replace(/\n\n\[已上传文件: ([^，]+)，路径: [^\]]+\]/g, (_, name) => `\n\n(已上传: ${name})`);
+  out = out.replace(/^\[已上传文件: ([^，]+)，路径: [^\]]+\]$/, (_, name) => `(已上传: ${name})`);
+  return out;
+}
+
 /** 将消息列表转为「展示块」：工具调用与对应结果合并为一张卡片 */
 type DisplayBlock =
   | { kind: "user"; msg: ChatMessage }
@@ -260,7 +267,7 @@ function ChatMessageBlock({ block }: { block: DisplayBlock }) {
   if (block.kind === "user") {
     return (
       <div className="chat-msg user">
-        <div className="chat-msg-content">{block.msg.text}</div>
+        <div className="chat-msg-content">{shortenUploadHintInMessage(block.msg.text)}</div>
       </div>
     );
   }
@@ -347,6 +354,11 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  /** 上传到 agent 侧 ~/.uagent_tmp 的文件（path 为 agent 本机路径），发送消息时会附带告知 agent */
+  const [uploadedFile, setUploadedFile] = useState<{ path: string; filename: string } | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   /** 当前对话使用的 sessionKey，用于发送后从服务端重载历史（保证多轮一致） */
   const sessionKeyRef = useRef<string>("");
@@ -552,6 +564,38 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     loadHistory(key, { forceReplace: true });
   };
 
+  const handleFileUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const onFileSelected = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !agentId) return;
+      setUploadErr(null);
+      setUploadLoading(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const data = reader.result as string;
+        const base64 = data.indexOf("base64,") >= 0 ? data.split("base64,")[1]! : btoa(unescape(encodeURIComponent(data)));
+        gatewayClient
+          .request<{ path?: string }>("file.upload", { agentId, filename: file.name, content: base64 })
+          .then((res) => {
+            if (res.ok && res.payload?.path) {
+              setUploadedFile({ path: res.payload.path, filename: file.name });
+            } else {
+              setUploadErr((res as { error?: { message?: string } }).error?.message ?? "上传失败");
+            }
+          })
+          .catch((err) => setUploadErr((err as Error).message))
+          .finally(() => setUploadLoading(false));
+      };
+      reader.readAsDataURL(file);
+    },
+    [agentId],
+  );
+
   const abortRun = useCallback(() => {
     if (currentRunId) {
       if (fallbackTimerRef.current) {
@@ -612,7 +656,11 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   }, []);
 
   const send = async () => {
-    const text = input.trim();
+    let text = input.trim();
+    if (uploadedFile) {
+      text = text ? `${text}\n\n[已上传文件: ${uploadedFile.filename}，路径: ${uploadedFile.path}]` : `[已上传文件: ${uploadedFile.filename}，路径: ${uploadedFile.path}]`;
+      setUploadedFile(null);
+    }
     if (!text || loading) return;
     const replyAllMatch = /^\/all\s+/i.exec(text);
     const taskMatch = /^\/task\s+/i.exec(text);
@@ -622,7 +670,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     if (useReplyModeAll) messageBody = text.replace(/^\/all\s+/i, "").trim();
     else if (useReplyModeTask) messageBody = text.replace(/^\/task\s+/i, "").trim();
     const toSend = isNewSession ? `/new\n${messageBody}` : messageBody;
-    const displayText = messageBody.replace(/^\/(?:new|reset)\s*\n?/i, "").trim() || messageBody;
+    const displayText = (messageBody.replace(/^\/(?:new|reset)\s*\n?/i, "").trim() || messageBody).replace(/\n\n\[已上传文件: ([^，]+)，路径: [^\]]+\]$/, (_, name) => `\n\n(已上传: ${name})`);
     const effectiveKey = isNewSession && pendingNewSessionKeyRef.current
       ? pendingNewSessionKeyRef.current
       : sessionKey;
@@ -894,6 +942,13 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
             <div ref={bottomRef} />
           </div>
           {err && <p className="error chat-error">{err}</p>}
+          {uploadErr && <p className="error chat-error" style={{ fontSize: "0.85rem" }}>{uploadErr}</p>}
+          {uploadedFile && (
+            <div className="chat-uploaded-chip" style={{ marginBottom: "0.25rem", fontSize: "0.85rem" }}>
+              <span className="muted">已上传: {uploadedFile.filename}</span>
+              <button type="button" onClick={() => setUploadedFile(null)} aria-label="清除">×</button>
+            </div>
+          )}
           <form
             className="chat-form"
             onSubmit={(e) => {
@@ -901,6 +956,13 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
               send();
             }}
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: "none" }}
+              onChange={onFileSelected}
+              disabled={uploadLoading}
+            />
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -919,7 +981,12 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
                 停止
               </button>
             ) : (
-              <button type="submit">发送</button>
+              <>
+                <button type="button" onClick={handleFileUpload} disabled={uploadLoading} title="上传到当前 Agent 的 ~/.uagent_tmp">
+                  {uploadLoading ? "上传中…" : "上传文件"}
+                </button>
+                <button type="submit">发送</button>
+              </>
             )}
           </form>
         </div>

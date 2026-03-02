@@ -154,6 +154,7 @@ export function createHandlers(ctx: HandlersContext) {
     rootDir,
     connections,
     pendingInvokes,
+    pendingFileUploads,
     nextInvokeId,
     nextRunId,
     inFlightAgentRuns,
@@ -1014,6 +1015,56 @@ export function createHandlers(ctx: HandlersContext) {
           }
         }
         resolveFn(result);
+      }
+      return ok({ id, accepted: true });
+    },
+
+    "file.upload": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+      const agentId = (params?.agentId as string)?.trim() || getFirstAgentId(connections);
+      if (!agentId) return fail(err(INVALID_REQUEST, "file.upload requires params.agentId or at least one connected agent"));
+      const filename = typeof params?.filename === "string" ? params.filename.trim() : "";
+      if (!filename) return fail(err(INVALID_REQUEST, "file.upload requires params.filename"));
+      const content = typeof params?.content === "string" ? params.content : "";
+      const nodes = getNodesFromConnections(connections);
+      const agentSlot = nodes.flatMap((n) => n.agents).find((a) => a.agentId === agentId);
+      const connId = agentSlot?.connId;
+      if (typeof connId !== "string" || connId.length === 0) {
+        return fail(err(503, `agent ${agentId} not connected (file upload is to agent, not gateway)`));
+      }
+      const entry = connections.get(connId);
+      if (!entry || entry.ws.readyState !== 1) {
+        return fail(err(503, `agent ${agentId} connection not ready`));
+      }
+      const id = nextInvokeId();
+      return new Promise<GatewayResponse>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          if (pendingFileUploads.delete(id)) resolve(fail(err(504, "file.upload timeout")));
+        }, 30_000);
+        pendingFileUploads.set(id, {
+          resolve: (v: unknown) => {
+            clearTimeout(timeout);
+            pendingFileUploads.delete(id);
+            resolve(ok(v as Record<string, unknown>));
+          },
+          reject: (e: Error) => {
+            clearTimeout(timeout);
+            pendingFileUploads.delete(id);
+            resolve(fail(err(500, e.message)));
+          },
+        });
+        entry!.ws.send(JSON.stringify({ event: "agent.file.upload", payload: { id, filename, content } }));
+      });
+    },
+
+    "agent.file.upload.result": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+      const id = params?.id;
+      if (id == null) return fail(err(INVALID_REQUEST, "agent.file.upload.result requires params.id"));
+      const pending = pendingFileUploads.get(String(id));
+      if (pending) {
+        pendingFileUploads.delete(String(id));
+        const errMsg = typeof params?.error === "string" ? params.error : undefined;
+        if (errMsg) pending.reject(new Error(errMsg));
+        else pending.resolve({ path: params?.path ?? "" });
       }
       return ok({ id, accepted: true });
     },

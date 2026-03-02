@@ -1,4 +1,4 @@
-import { appendAssistantMessage } from "./state.js";
+import { appendAssistantMessage, stripOrphanedToolResults } from "./state.js";
 import type { AgentLoopConfig, AgentMessage, AgentState, StreamChunk, ToolCall } from "./types.js";
 
 /**
@@ -46,7 +46,8 @@ export async function runOneTurnStreaming(
 	if (config.transformContext) {
 		messages = await config.transformContext(state.messages, signal);
 	}
-	const llmMessages = await config.convertToLlm(messages);
+	let llmMessages = await config.convertToLlm(messages);
+	llmMessages = stripOrphanedToolResults(llmMessages);
 	const effectiveState: AgentState = messages !== state.messages ? { ...state, messages } : state;
 	let currentState = effectiveState;
 	let text = "";

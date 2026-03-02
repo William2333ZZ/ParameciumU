@@ -74,6 +74,8 @@ export const GATEWAY_METHODS = [
 	"node.list",
 	"node.invoke",
 	"node.invoke.result",
+	"file.upload",
+	"agent.file.upload.result",
 	"connector.mapping.list",
 	"connector.mapping.add",
 	"connector.mapping.remove",
@@ -93,6 +95,7 @@ export const GATEWAY_EVENTS = [
 	"agent.run.chunk",
 	"agent.run.done",
 	"node.invoke.request",
+	"agent.file.upload",
 	"connector.message.push",
 ] as const;
 export type GatewayEventName = (typeof GATEWAY_EVENTS)[number];

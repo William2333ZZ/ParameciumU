@@ -10,6 +10,39 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+
+/** 用户上传文件落盘目录（在 agent 所在机器，非 Gateway）；Gateway 通过 agent.file.upload 事件将文件发到此处 */
+const UAGENT_TMP = path.join(os.homedir(), ".uagent_tmp");
+
+function safeBasename(name: string): string {
+	const base = path.basename(name) || "upload";
+	return base.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 200) || "upload";
+}
+
+async function handleFileUpload(
+	payload: { id?: string; filename?: string; content?: string },
+	send: (obj: object) => void,
+): Promise<void> {
+	const id = payload?.id;
+	const filename = typeof payload?.filename === "string" ? payload.filename : "";
+	const content = typeof payload?.content === "string" ? payload.content : "";
+	if (!id || !filename) {
+		send({ method: "agent.file.upload.result", params: { id, error: "Missing id or filename" } });
+		return;
+	}
+	try {
+		await fs.mkdir(UAGENT_TMP, { recursive: true });
+		const base = safeBasename(filename);
+		const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${base}`;
+		const filePath = path.join(UAGENT_TMP, unique);
+		const buf = Buffer.from(content, "base64");
+		await fs.writeFile(filePath, buf);
+		send({ method: "agent.file.upload.result", params: { id, path: filePath } });
+	} catch (e) {
+		const errMsg = e instanceof Error ? e.message : String(e);
+		send({ method: "agent.file.upload.result", params: { id, error: errMsg } });
+	}
+}
 import { buildSessionFromU, createAgentContextFromU } from "@monou/agent-from-dir";
 import { type AgentMessage, runAgentTurnWithTools } from "@monou/agent-sdk";
 import { type CronJob, CronStore } from "@monou/cron";
@@ -354,6 +387,13 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
 			if (prevCron !== undefined) process.env.CRON_STORE = prevCron;
 			else delete process.env.CRON_STORE;
 		}
+	}
+	if (msg.event === "agent.file.upload" && payload && typeof payload.id === "string") {
+		const uploadPayload = payload as { id: string; filename?: string; content?: string };
+		await handleFileUpload(
+			{ id: uploadPayload.id, filename: uploadPayload.filename, content: uploadPayload.content },
+			(obj) => ws.send(JSON.stringify(obj)),
+		);
 	}
 });
 
