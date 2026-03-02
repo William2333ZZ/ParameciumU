@@ -34,7 +34,7 @@ description: "定时任务管理：列出、创建、更新、删除、立即运
 
 创建任务。参数：`name`（必填）、`description`（可选）、`schedule`（必填，见上）、`payload`（必填：`{ kind: "systemEvent", text: "..." }` 或 `{ kind: "agentTurn", message: "..." }`）、`enabled`（可选，默认 true）、`deleteAfterRun`（可选，at 任务默认 true）、`deliver`（可选，见下）。
 
-**deliver**（仅对 `payload.kind === "agentTurn"` 有效）：执行完成后将结果推送到指定 Connector 会话。格式 `{ connectorId: string, chatId: string }`，例如 `{ connectorId: "feishu", chatId: "oc_xxxx" }`。需 Agent 连 Gateway 且对应 Connector（如 feishu-app）已连接，汇报才会发出。飞书 chatId 可从该群内与机器人对话时的会话信息或 Control UI / feishu-app 日志中获得。
+**deliver**（仅对 `payload.kind === "agentTurn"` 有效）：执行完成后将结果推送到指定 Connector 会话。格式 `{ connectorId: string, chatId: string }`，例如 `{ connectorId: "feishu", chatId: "oc_xxxx" }`。需 Agent 连 Gateway 且对应 Connector（如 feishu-node）已连接，汇报才会发出。飞书 chatId 可从该群内与机器人对话时的会话信息或 Control UI / feishu-node 日志中获得。
 
 ### cron_update
 

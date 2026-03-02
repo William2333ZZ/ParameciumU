@@ -3,6 +3,8 @@ dist/
 *.log
 .env
 .env.*
+# Agent LLM 配置（含 apiKey），不提交；仅提交 llm.json.example
+**/llm.json
 .u/
 .gateway/
 **/.agent-client.pid

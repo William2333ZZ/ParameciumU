@@ -23,16 +23,16 @@ ssh $SSH_OPTS "$REMOTE" "bash -s" << 'REMOTE_SCRIPT'
 set -e
 cd ~/monoU
 
-# 先停止之前启动的 Gateway、Control UI、Agent、飞书 App
+# 先停止之前启动的 Gateway、Control UI、Agent、飞书 Node
 if [ -d .gateway ]; then
-  for f in gateway.pid control-ui.pid agent.pid feishu-app.pid; do
+  for f in gateway.pid control-ui.pid agent.pid feishu-node.pid; do
     [ -f .gateway/$f ] && kill $(cat .gateway/$f) 2>/dev/null || true
   done
 fi
 pkill -f "node.*apps/gateway/dist/index.js" 2>/dev/null || true
 pkill -f "vite preview" 2>/dev/null || true
 pkill -f "apps/agent/dist/index.js" 2>/dev/null || true
-pkill -f "node.*apps/feishu-app/dist/index.js" 2>/dev/null || true
+pkill -f "node.*apps/nodes/feishu-node/dist/index.js" 2>/dev/null || true
 sleep 1
 echo "已停止旧进程（若有）."
 
@@ -68,8 +68,8 @@ echo "构建..."
 npm run build
 echo "构建 Control UI..."
 npm run control-ui:build 2>/dev/null || (cd apps/control-ui && npm run build)
-echo "构建飞书 App..."
-(cd apps/feishu-app && npm run build) 2>/dev/null || true
+echo "构建飞书 Node..."
+(cd apps/nodes/feishu-node && npm run build) 2>/dev/null || true
 REPO_ROOT="$PWD"
 mkdir -p "$REPO_ROOT/.gateway"
 echo "启动 Gateway (端口 40005, 监听 0.0.0.0)..."
@@ -84,17 +84,17 @@ echo "启动 Control UI (端口 40006)..."
 nohup bash -c "cd apps/control-ui && exec npx vite preview --port 40006 --host 0.0.0.0" >> "$REPO_ROOT/.gateway/control-ui.log" 2>&1 &
 echo $! > "$REPO_ROOT/.gateway/control-ui.pid"
 sleep 1
-echo "启动飞书 App (GATEWAY_WS_URL=ws://127.0.0.1:40005)..."
-nohup env GATEWAY_WS_URL=ws://127.0.0.1:40005 node apps/feishu-app/dist/index.js >> "$REPO_ROOT/.gateway/feishu-app.log" 2>&1 &
-echo $! > "$REPO_ROOT/.gateway/feishu-app.pid"
+echo "启动飞书 Node (GATEWAY_WS_URL=ws://127.0.0.1:40005)..."
+nohup env GATEWAY_WS_URL=ws://127.0.0.1:40005 node apps/nodes/feishu-node/dist/index.js >> "$REPO_ROOT/.gateway/feishu-node.log" 2>&1 &
+echo $! > "$REPO_ROOT/.gateway/feishu-node.pid"
 sleep 1
 echo ""
 echo "已启动:"
 echo "  Gateway:    http://36.170.54.3:40005 (WebSocket ws://36.170.54.3:40005)"
 echo "  Control UI: http://36.170.54.3:40006"
 echo "  Agent:      .u 已连 Gateway（见 .gateway/agent.log）"
-echo "  飞书 App:   已连 Gateway（见 .gateway/feishu-app.log；需在 .env 配置 FEISHU_APP_ID/SECRET）"
+echo "  飞书 Node:  已连 Gateway（见 .gateway/feishu-node.log；需在 .env 配置 FEISHU_APP_ID/SECRET）"
 REMOTE_SCRIPT
 
 echo ""
-echo "完成. Gateway、Control UI、Agent、飞书 App 已在远程运行."
+echo "完成. Gateway、Control UI、Agent、飞书 Node 已在远程运行."

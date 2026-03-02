@@ -1,6 +1,6 @@
 ---
 title: "Apps"
-summary: "gateway, agent, control-ui, TUI, feishu-app, sandbox-node, browser-node: roles, how to run, env vars."
+summary: "gateway, agent, control-ui, TUI, feishu-node, sandbox-node, browser-node: roles, how to run, env vars."
 read_when:
   - Starting or debugging an app
   - Configuring port, auth, or data dirs
@@ -69,6 +69,8 @@ GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=research_agent AGENT_DIR=./agents/resea
 | DEVICE_ID | Device id (default hostname or AGENT_ID) | No |
 | GATEWAY_TOKEN / GATEWAY_PASSWORD | Match Gateway auth | No |
 
+**LLM 配置**：从 **agent 目录** 的 `llm.json` 读取（OpenAI 兼容：apiKey、baseURL、model）。可复制该目录下的 `llm.json.example` 为 `llm.json` 并填写；缺项时回退到环境变量 OPENAI_API_KEY、OPENAI_BASE_URL、OPENAI_MODEL。
+
 **Behavior:** After connect, ensures a **Heartbeat** cron job exists and starts the in-process scheduler. Cron runs inside this process (runScheduler + onJobDue); no separate cron:daemon needed for executing turns. See [heartbeat.md](./heartbeat.md), [automation/heartbeat.md](../automation/heartbeat.md).
 
 ---
@@ -110,13 +112,13 @@ npx u-tui
 
 ---
 
-## 5. feishu-app (@monou/feishu-app)
+## 5. feishu-node (@monou/feishu-node)
 
-**Role:** Node (connector). Connects to Hub as connector; receives Feishu WebSocket messages → connector.message.inbound; sends replies back to Feishu; supports connector.message.push for proactive messages.
+**Role:** Node (connector + node). Connects to Hub as **node** (`capabilities: ["feishu"]`) and as **connector**; receives Feishu WebSocket messages → connector.message.inbound; sends replies back to Feishu; supports connector.message.push; exposes `feishu.send` via node.invoke.
 
-**Run:** Configure .env (see env.example), then `npm run build`, `node dist/index.js` or `npm run start`. Gateway must be running; complete connector mapping in Control UI or RPC.
+**Run:** From repo root: `npm run feishu-node`. Or `cd apps/nodes/feishu-node && npm run build && npm start`. Configure .env (see `apps/nodes/feishu-node/env.example`). Gateway must be running; complete connector mapping in Control UI or RPC.
 
-**Env:** FEISHU_APP_ID, FEISHU_APP_SECRET, GATEWAY_WS_URL; optional FEISHU_DOMAIN (lark for international), CONNECTOR_ID, CONNECTOR_DISPLAY_NAME.
+**Env:** FEISHU_APP_ID, FEISHU_APP_SECRET, GATEWAY_WS_URL / GATEWAY_URL; optional FEISHU_NODE_ID (default feishu-1), FEISHU_DOMAIN (lark for international), CONNECTOR_ID, CONNECTOR_DISPLAY_NAME.
 
 ---
 
@@ -151,7 +153,7 @@ GATEWAY_URL=ws://127.0.0.1:9347 SANDBOX_NODE_ID=sandbox-1 SANDBOX_WORKSPACE=./.s
 
 ```bash
 # Install WebKit: npx playwright install webkit
-cd apps/browser-node && npm run build
+cd apps/nodes/browser-node && npm run build
 GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
 # Or from root (after build): GATEWAY_URL=ws://127.0.0.1:9347 npm run browser-node
 ```

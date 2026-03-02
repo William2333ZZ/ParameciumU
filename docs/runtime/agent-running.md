@@ -29,7 +29,7 @@ Same as in [agent-directory](../concepts/agent-directory.md): SOUL.md, IDENTITY.
 | Build context | @monou/agent-from-dir: createAgentContextFromU(session, opts?) | Read SOUL.md, IDENTITY.md, build system prompt; createAgent → state, config, streamFn; optional initialMessages (e.g. from transcript) |
 
 - **executeTool** routes by tool name to each skill’s executeTool (memory, knowledge, cron, web_skill, gateway_skill, code_skill, todo_skill, etc.). When **gatewayInvoke** is provided, gateway_skill can call Gateway RPC (agents.list, node.list, node.invoke, sessions_*, send_message, etc.). Browser and sandbox are used via **gateway_node_invoke** to L3 nodes, not via a separate browser_skill.
-- **createAgentContextFromU** uses @monou/agent-sdk createAgent and injects SOUL/IDENTITY, date/time, and skill descriptions from formatSkillsForPrompt(skillDirs).
+- **createAgentContextFromU** uses @monou/agent-sdk createAgent and injects SOUL/IDENTITY, date/time, and skill descriptions from formatSkillsForPrompt(skillDirs). **LLM** 从 agent 目录的 `llm.json` 读取（loadLlmConfig(agentDir)）：apiKey、baseURL、model；缺项用环境变量 OPENAI_* 补全。
 
 **Default skill set** (from agent-template U_BASE_SKILL_NAMES): base_skill, code_skill, todo_skill, skill-creator, agent-creator, node-creator, memory, knowledge, cron, web_skill, gateway_skill. gateway_skill provides topology, skills/cron queries, agent delegation, **gateway_node_invoke** (node.invoke), sessions, and message push.
 
@@ -73,7 +73,7 @@ Tools are run in the SDK loop by executeTool (from buildSessionFromU), not insid
 ### 2.4 Config and extension
 
 - **AgentLoopConfig** (agent-core): convertToLlm, transformContext, getSteeringMessages, getFollowUpMessages, tools, maxToolRounds. createAgentContextFromU uses default convertToLlm and can plug transformContext (e.g. compaction).
-- **streamFn:** Created by createAgentContextFromU via @monou/llm-provider createStreamFn; signature (messages, tools, signal) => AsyncIterable&lt;StreamChunk&gt;; system in first system message.
+- **streamFn:** Created by createAgentContextFromU via @monou/llm-provider createStreamFn（仅 OpenAI 兼容接口）；配置来自 agent 目录 llm.json；signature (messages, tools, signal) => AsyncIterable&lt;StreamChunk&gt;; system in first system message.
 
 ---
 

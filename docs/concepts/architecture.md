@@ -78,7 +78,7 @@ The **agent folder**: SOUL.md, IDENTITY.md, skills/, memory/, knowledge/, cron/.
 ```
 ParameciumU/
 ├── apps/              # gateway (Hub), agent (Agent), control-ui, TUI (Clients),
-│                      # feishu-app, sandbox-node, browser-node (Nodes)
+│                      # feishu-node, sandbox-node, browser-node (Nodes)
 ├── packages/          # shared, agent-core, skills, cron, gateway, agent-from-dir, …
 ├── agents/            # example agent dirs (same shape as .first_paramecium)
 ├── .first_paramecium/ # default “first paramecium” Definition (optional)
@@ -107,7 +107,7 @@ ParameciumU/
 | **agent** | Agent | Connects to Hub, loads one Definition, runs runTurn, heartbeat, in-process cron. |
 | **control-ui** | Client | Connects as operator; topology, sessions, chat. |
 | **TUI (u-tui)** | Client | Terminal UI; connects to Hub. |
-| **feishu-app** | Node (connector) | Connects as node/connector; Feishu messages → connector.message.inbound; pushes replies. |
+| **feishu-node** | Node (connector + node) | Connects as node (capabilities feishu) and connector; Feishu messages → connector.message.inbound; pushes replies; feishu.send via node.invoke. |
 | **sandbox-node** | Node | role=node, capabilities `["sandbox"]`; system.run, system.which. |
 | **browser-node** | Node | role=node, capabilities `["browser"]`; browser_fetch, etc. |
 

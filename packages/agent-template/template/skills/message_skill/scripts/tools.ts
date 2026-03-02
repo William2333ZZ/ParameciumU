@@ -12,7 +12,7 @@ export const tools: AgentTool[] = [
 		parameters: {
 			type: "object",
 			properties: {
-				connectorId: { type: "string", description: "连接器 ID（如 feishu-app 的 connectorId）" },
+				connectorId: { type: "string", description: "连接器 ID（如 feishu-node 的 connectorId，通常为 feishu）" },
 				chatId: { type: "string", description: "会话/群/私聊 ID" },
 				text: { type: "string", description: "要发送的文本" },
 				channelId: { type: "string", description: "可选，子频道 ID" },

@@ -47,7 +47,7 @@ This doc states ParameciumU’s positioning, design principles, and capability r
 | Area | Status | Plan |
 |------|--------|------|
 | Web client | ✅ control-ui | Keep improving topology and UX |
-| Feishu | ✅ feishu-app (connector) | Optional: multi-instance, mapping UX |
+| Feishu | ✅ feishu-node (connector + node) | Optional: multi-instance, mapping UX |
 | TUI | ✅ u-tui | Chat + cron panel |
 | WeCom / DingTalk / API | Not yet | Add as connector nodes (same pattern: connect, inbound/push, mapping) |
 
@@ -92,7 +92,7 @@ This doc states ParameciumU’s positioning, design principles, and capability r
 
 - **Protocol:** Methods and payloads in packages/gateway are defined by ParameciumU; changes for simplicity and multi-client support.
 - **Server:** apps/gateway is the reference server.
-- **Clients:** Control UI, TUI, feishu-app, apps/agent use @monou/gateway; no OpenClaw client dependency.
+- **Clients:** Control UI, TUI, feishu-node, apps/agent use @monou/gateway; no OpenClaw client dependency.
 
 ## Roadmap (suggested order)
 

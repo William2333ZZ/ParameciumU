@@ -15,7 +15,7 @@ read_when:
 - **Concepts and design** — [Architecture](concepts/architecture.md) (Hub, Agent, Node, Definition, Client; connectors as nodes), [Agent directory](concepts/agent-directory.md), [Vision and roadmap](concepts/vision-and-roadmap.md), [Paramecium vision](concepts/paramecium-vision.md), [AI OS sketch](concepts/ai-os-sketch.md).
 - **Gateway** — [Protocol](gateway/protocol.md) (connect, RPC, sessions, node.invoke), [Overview](gateway/index.md), [Multi-agent](gateway/multi-agent.md).
 - **Automation** — [Cron](automation/cron.md), [Heartbeat](automation/heartbeat.md).
-- **Runtime** — [Apps](runtime/apps.md) (gateway, agent, control-ui, TUI, feishu-app, sandbox-node, browser-node), [Packages](runtime/packages.md), [Agent running](runtime/agent-running.md), [Heartbeat](runtime/heartbeat.md).
+- **Runtime** — [Apps](runtime/apps.md) (gateway, agent, control-ui, TUI, feishu-node, sandbox-node, browser-node), [Packages](runtime/packages.md), [Agent running](runtime/agent-running.md), [Heartbeat](runtime/heartbeat.md).
 - **Control UI** — [Design](control-ui/design.md), [Node capabilities](control-ui/node-capabilities.md).
 - **Reference** — [Code skill design](reference/code-skill-design.md), [Browser node design](reference/browser-node-design.md).
 - **Maintenance** — [Deploy docs site](deploy-docs-site.md).

@@ -78,7 +78,7 @@ One session = one page; multiple commands in the same session (navigate, click, 
 
 ## 4. Implementation notes
 
-- **App:** `apps/browser-node` (same level as sandbox-node). Dependency: **playwright** with **WebKit only** (`npx playwright install webkit`; `import { webkit } from "playwright"`).
+- **App:** `apps/nodes/browser-node` (same level as sandbox-node, feishu-node). Dependency: **playwright** with **WebKit only** (`npx playwright install webkit`; `import { webkit } from "playwright"`).
 - **Headless (default):** `webkit.launch({ headless: true })`. **Headed:** Env `BROWSER_HEADED=1` → `headless: false`; window appears on the **machine where the Browser Node process runs**. For "human logs in once", run browser-node on a machine with a display, or use Xvfb + VNC.
 - **Profile:** Env **BROWSER_USER_DATA_DIR** → `webkit.launch({ userDataDir })` so cookies/login state persist across restarts. Useful for sites that need login (use headed once to log in, then headless can reuse the profile).
 - **Lifecycle:** browser_fetch = one-off page, no session. Session commands = maintain `sessionId → Page` map; browser_session_end or timeout clears it. One browser instance per process; multiple pages/contexts for multiple sessions.

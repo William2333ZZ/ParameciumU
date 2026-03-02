@@ -10,10 +10,11 @@ export {
 	U_BASE_AGENT_ID,
 	U_BASE_SKILL_NAMES,
 } from "@monou/agent-template";
-export type { AgentSession, BuildSessionFromUOptions, GatewayInvoke } from "./build-session.js";
+export type { AgentSession, BuildSessionFromUOptions, GatewayInvoke, LlmConfig } from "./build-session.js";
 export {
 	buildSessionFromU,
 	createAgentContextFromU,
+	loadLlmConfig,
 	MEMORY_FLUSH_DEFAULT_PROMPT,
 	runMemoryFlushTurn,
 } from "./build-session.js";

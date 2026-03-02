@@ -1,7 +1,7 @@
 /**
  * 测试 Browser Node 与 browser_skill：启动 Gateway、Browser Node、Agent，验证 node.list 出现 browser 节点，并让 Agent 调用 browser_nodes / browser_capabilities。
  *
- * 运行前：npm run build，且 apps/browser-node 已 build，可选 npx playwright install webkit（若需测 browser_fetch 再装）
+ * 运行前：npm run build，且 apps/nodes/browser-node 已 build，可选 npx playwright install webkit（若需测 browser_fetch 再装）
  * 运行：npx tsx scripts/test-browser-node.ts
  */
 
@@ -46,7 +46,7 @@ async function run() {
 
   const gatewayPath = path.join(ROOT, "apps", "gateway", "dist", "index.js");
   const agentPath = path.join(ROOT, "apps", "agent", "dist", "index.js");
-  const browserNodePath = path.join(ROOT, "apps", "browser-node", "dist", "index.js");
+  const browserNodePath = path.join(ROOT, "apps", "nodes", "browser-node", "dist", "index.js");
 
   if (!fs.existsSync(gatewayPath)) {
     fail("构建", "缺少 apps/gateway/dist/index.js，请先 npm run build");
@@ -57,7 +57,7 @@ async function run() {
     process.exit(1);
   }
   if (!fs.existsSync(browserNodePath)) {
-    fail("构建", "缺少 apps/browser-node/dist/index.js，请先 cd apps/browser-node && npm run build");
+    fail("构建", "缺少 apps/nodes/browser-node/dist/index.js，请先 cd apps/nodes/browser-node && npm run build");
     process.exit(1);
   }
   ok("产物存在");

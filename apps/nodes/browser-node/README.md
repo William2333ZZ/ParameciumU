@@ -63,7 +63,7 @@ npm run build
 
 ```bash
 # 构建（在仓库根目录）
-docker build -t paramecium-u-browser-node -f apps/browser-node/Dockerfile apps/browser-node
+docker build -t paramecium-u-browser-node -f apps/nodes/browser-node/Dockerfile apps/nodes/browser-node
 
 # 运行（Gateway 需已启动，端口 9347；Mac/Windows 用 host.docker.internal 指宿主机）
 docker run --rm --init \

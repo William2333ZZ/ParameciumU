@@ -335,30 +335,41 @@ export async function runMemoryFlushTurn(
   return result.state;
 }
 
-/** 从环境变量解析 LLM 配置：优先级 BIANXIE > AIHUBMIX > OPENAI */
-function getLlmEnv(): { apiKey: string; baseURL?: string; modelId: string } {
-  const bianxie = process.env.BIANXIE_API_KEY;
-  const aihubmix = process.env.AIHUBMIX_API_KEY;
-  const openai = process.env.OPENAI_API_KEY;
-  if (bianxie) {
-    return {
-      apiKey: bianxie,
-      baseURL: process.env.BIANXIE_BASE_URL || undefined,
-      modelId: process.env.BIANXIE_MODEL || "gpt-4o-mini",
-    };
-  }
-  if (aihubmix) {
-    return {
-      apiKey: aihubmix,
-      baseURL: process.env.AIHUBMIX_BASE_URL || undefined,
-      modelId: process.env.AIHUBMIX_MODEL || "gpt-4o-mini",
-    };
-  }
-  return {
-    apiKey: openai ?? "",
+/** LLM 配置（OpenAI 兼容接口：key、baseURL、model） */
+export interface LlmConfig {
+  apiKey: string;
+  baseURL?: string;
+  modelId: string;
+}
+
+const LLM_CONFIG_FILENAME = "llm.json";
+const DEFAULT_MODEL_ID = "gpt-4o-mini";
+
+/**
+ * 从 agent 目录的 llm.json 加载 LLM 配置（OpenAI 兼容）。
+ * 文件可选字段：apiKey、baseURL、model。未配置的项用环境变量 OPENAI_API_KEY、OPENAI_BASE_URL、OPENAI_MODEL（或 OPENAI_DEFAULT_MODEL）补全。
+ * 若未传 agentDir 或文件不存在，则仅从环境变量读取。
+ */
+export function loadLlmConfig(agentDir?: string): LlmConfig {
+  const fromEnv = {
+    apiKey: process.env.OPENAI_API_KEY ?? "",
     baseURL: process.env.OPENAI_BASE_URL || undefined,
-    modelId: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    modelId: process.env.OPENAI_MODEL || process.env.OPENAI_DEFAULT_MODEL || DEFAULT_MODEL_ID,
   };
+  if (!agentDir) return fromEnv;
+  const configPath = path.join(agentDir, LLM_CONFIG_FILENAME);
+  if (!existsSync(configPath)) return fromEnv;
+  try {
+    const raw = readFileSync(configPath, "utf-8");
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      apiKey: (data.apiKey as string)?.trim() || fromEnv.apiKey,
+      baseURL: (data.baseURL as string)?.trim() || fromEnv.baseURL,
+      modelId: (data.model as string)?.trim() || (data.modelId as string)?.trim() || fromEnv.modelId,
+    };
+  } catch {
+    return fromEnv;
+  }
 }
 
 export function createAgentContextFromU(
@@ -370,7 +381,7 @@ export function createAgentContextFromU(
   streamFn: StreamFn;
 } {
   registerBuiltins();
-  const { apiKey, baseURL, modelId } = getLlmEnv();
+  const { apiKey, baseURL, modelId } = loadLlmConfig(session.agentDir);
   const llmStreamFn = createStreamFn(
     { api: "openai" as const, id: modelId, provider: "openai" },
     { apiKey, baseURL: baseURL || undefined },
@@ -407,21 +418,23 @@ const DEFAULT_LLM_MODEL = { api: "openai" as const, id: "gpt-4o-mini", provider:
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 /**
- * Options for maybeCompactState: same model/env as createAgentContextFromU by default.
- * Pass contextWindow / settings to override compaction thresholds.
+ * Options for maybeCompactState: same model/config as createAgentContextFromU by default.
+ * Pass agentDir to use that agent's llm.json; pass contextWindow / settings to override compaction thresholds.
  */
 export interface MaybeCompactOptions {
 	contextWindow?: number;
 	settings?: Partial<CompactionSettings>;
 	signal?: AbortSignal;
 	customInstructions?: string;
+	/** Agent 目录，用于读取 llm.json；不传则用环境变量 OPENAI_* */
+	agentDir?: string;
 	apiKey?: string;
 	baseURL?: string;
 }
 
 /**
  * If state.messages exceed context window, compact: summarize older messages into a system message and keep recent.
- * Uses the same LLM as createAgentContextFromU (env: BIANXIE_* / AIHUBMIX_* / OPENAI_*).
+ * Uses the same LLM as createAgentContextFromU (agent's llm.json or OPENAI_* env).
  * Call this before runAgentTurnWithTools when holding long-running state (e.g. Gateway session transcript).
  */
 export async function maybeCompactState(
@@ -429,13 +442,13 @@ export async function maybeCompactState(
 	opts?: MaybeCompactOptions,
 ): Promise<AgentState> {
 	registerBuiltins();
-	const env = getLlmEnv();
-	const apiKey = opts?.apiKey ?? env.apiKey;
-	const baseURL = opts?.baseURL ?? env.baseURL;
+	const cfg = loadLlmConfig(opts?.agentDir);
+	const apiKey = opts?.apiKey ?? cfg.apiKey;
+	const baseURL = opts?.baseURL ?? cfg.baseURL;
 	const contextWindow = opts?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 	if (!apiKey) return state;
 
-	const model = { api: "openai" as const, id: env.modelId, provider: "openai" as const };
+	const model = { api: "openai" as const, id: cfg.modelId, provider: "openai" as const };
 	const completeFn = async (ctx: {
 		systemPrompt: string;
 		userText: string;

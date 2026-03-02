@@ -115,7 +115,7 @@ Cron runs inside the Agent process when you start it; no separate daemon require
 
 ```
 ParameciumU/
-├── apps/              # gateway, agent, control-ui, feishu-app, sandbox-node
+├── apps/              # gateway, agent, control-ui; apps/nodes: feishu-node, sandbox-node, browser-node
 ├── packages/          # shared, agent-core, skills, cron, gateway, agent-from-dir, …
 ├── agents/            # example agent dirs (same shape as .first_paramecium)
 ├── .first_paramecium/ # the first paramecium in this repo (or use your own, set AGENT_DIR)

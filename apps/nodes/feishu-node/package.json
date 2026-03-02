@@ -1,10 +1,10 @@
 {
-  "name": "@monou/feishu-app",
+  "name": "@monou/feishu-node",
   "version": "0.1.0",
-  "description": "ParameciumU Feishu connector: receive messages via WebSocket, route to Gateway agent, send reply back",
+  "description": "Feishu Node：以 role=node 连接 Gateway，声明 capabilities: [\"feishu\"]，处理 feishu.send；同时保留 Connector+飞书 WS 收消息与推送",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "bin": { "monou-feishu-node": "./dist/index.js" },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "npx tsc -p tsconfig.build.json",
@@ -14,15 +14,13 @@
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.58.0",
-    "@monou/gateway": "file:../../packages/gateway",
     "dotenv": "^16.4.5",
     "ws": "^8.18.0"
   },
-  "engines": {
-    "node": ">=20.0.0"
-  },
+  "engines": { "node": ">=20.0.0" },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
     "typescript": "^5.9.2"
   }
 }

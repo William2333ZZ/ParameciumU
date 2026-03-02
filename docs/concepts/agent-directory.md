@@ -39,6 +39,7 @@ Any agent root (e.g. `.first_paramecium` or `agents/sidekick`) should look like:
 │   └── index.sqlite  # Optional FTS5 index (Node 22+, knowledge_sync)
 ├── cron/
 │   └── jobs.json     # Cron jobs (cron skill / CronStore)
+├── llm.json          # Optional; OpenAI-compatible LLM config (apiKey, baseURL, model)
 └── (other skills or config)
 ```
 
@@ -48,8 +49,9 @@ Any agent root (e.g. `.first_paramecium` or `agents/sidekick`) should look like:
 - **memory/**, **MEMORY.md** — Long-term memory (memory skill).
 - **KNOWLEDGE.md**, **knowledge/** — Knowledge base (knowledge skill): search, learn, topic/point layout.
 - **cron/jobs.json** — Scheduled jobs; CronStore read/write; Gateway exposes cron.* RPC. Jobs can have **deliver** (e.g. push to Feishu after run).
+- **llm.json** — Optional. OpenAI-compatible LLM config: `apiKey`, `baseURL`, `model`. Used by @monou/agent-from-dir when building context (`createAgentContextFromU`). Missing fields fall back to env `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`. Copy from `llm.json.example` and fill in.
 
-**Cron deliver** — For `payload.kind === "agentTurn"` you can set `deliver: { connectorId, chatId }`. After the run, the Agent process pushes the reply to that connector/session (e.g. Feishu). Get chatId from session metadata or feishu-app / Control UI.
+**Cron deliver** — For `payload.kind === "agentTurn"` you can set `deliver: { connectorId, chatId }`. After the run, the Agent process pushes the reply to that connector/session (e.g. Feishu). Get chatId from session metadata or feishu-node / Control UI.
 
 **Sessions** — Not stored in the agent dir. Gateway holds them (e.g. `.gateway/sessions/sessions.json`, `transcripts/`). SessionKey is created by Gateway when not provided.
 

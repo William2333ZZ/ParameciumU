@@ -14,7 +14,7 @@ The **Hub** (Gateway) is ParameciumU’s **single center**: a single long-lived 
 
 - **apps/gateway** — Long-lived process; default bind `127.0.0.1:9347` (env `GATEWAY_PORT`, `GATEWAY_HOST`).
 - **packages/gateway** — Protocol types and client (e.g. `callGateway`); independent of who runs the server.
-- **Clients** — Control UI, TUI, apps/agent, feishu-app, sandbox-node, browser-node, etc. connect over WebSocket; first message is **connect** (role, agentId/deviceId, optional token/password).
+- **Clients** — Control UI, TUI, apps/agent, feishu-node, sandbox-node, browser-node, etc. connect over WebSocket; first message is **connect** (role, agentId/deviceId, optional token/password).
 
 ## Responsibility boundary
 

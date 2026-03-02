@@ -1,5 +1,5 @@
 # Browser Node with Xvfb + VNC: 无显示器时可从浏览器通过 noVNC 看界面（如知乎登录页）
-# 构建: docker build -t monou-browser-node -f apps/browser-node/Dockerfile apps/browser-node
+# 构建: docker build -t monou-browser-node -f apps/nodes/browser-node/Dockerfile apps/nodes/browser-node
 # 运行: 见 scripts/test-browser-node-docker.sh
 
 FROM mcr.microsoft.com/playwright:v1.50.0-noble

@@ -9,7 +9,7 @@
  *
  * 运行: npx tsx scripts/test-browser-node-docker.ts
  * 前置: npm run build；Docker 已启动；首次请先构建镜像:
- *   docker build -t monou-browser-node -f apps/browser-node/Dockerfile apps/browser-node
+ *   docker build -t monou-browser-node -f apps/nodes/browser-node/Dockerfile apps/nodes/browser-node
  */
 
 import { spawn } from "node:child_process";

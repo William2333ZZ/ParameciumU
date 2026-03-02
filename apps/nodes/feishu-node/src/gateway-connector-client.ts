@@ -5,7 +5,6 @@
 import WebSocket from "ws";
 import type { FeishuAppConfig } from "./config.js";
 
-/** Gateway 主动推送的 connector.message.push 的 payload */
 export type ConnectorMessagePushPayload = {
 	connectorId: string;
 	chatId: string;
@@ -21,7 +20,6 @@ export type GatewayConnectorClient = {
 };
 
 export type GatewayConnectorClientOptions = {
-	/** 收到 connector.message.push 时调用（主动回复到 app） */
 	onPush?: (payload: ConnectorMessagePushPayload) => void;
 };
 
@@ -95,16 +93,16 @@ export function createGatewayConnectorClient(
 
 		const client: GatewayConnectorClient = {
 			request<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T> {
-				return new Promise((resolve, reject) => {
+				return new Promise((resolveReq, rejectReq) => {
 					const id = `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 					if (ws.readyState !== 1) {
-						reject(new Error("Gateway not connected"));
+						rejectReq(new Error("Gateway not connected"));
 						return;
 					}
-					pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
+					pending.set(id, { resolve: resolveReq as (v: unknown) => void, reject: rejectReq });
 					ws.send(JSON.stringify({ method, params, id }));
 					setTimeout(() => {
-						if (pending.delete(id)) reject(new Error("Gateway request timeout"));
+						if (pending.delete(id)) rejectReq(new Error("Gateway request timeout"));
 					}, 120_000);
 				});
 			},

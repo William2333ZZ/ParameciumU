@@ -1,6 +1,6 @@
 # @monou/llm-provider
 
-Unified LLM API: multi-provider registry, `stream`/`complete`, and `createStreamFn` for agent-core.
+Unified LLM API：**仅支持 OpenAI 兼容接口**（任意兼容 OpenAI 格式的代理如 aihubmix、bianxie、Kimi 等均可通过 baseURL + apiKey + model 使用）。提供 provider 注册、`stream`/`complete` 与 `createStreamFn`，供 agent-core 使用。
 
 ## Installation
 
@@ -35,3 +35,4 @@ const streamFn = createStreamFn(model, { apiKey: process.env.OPENAI_API_KEY });
 ## Environment
 
 - `OPENAI_API_KEY` used when `options.apiKey` is not set.
+- `baseURL` 可通过 `options.baseURL` 指定，用于代理或自建兼容接口（如 `https://aihubmix.com/v1`）。
