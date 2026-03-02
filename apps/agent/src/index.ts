@@ -129,6 +129,43 @@ function wireToAgentMessages(
 	});
 }
 
+/** 与 Gateway StoredMessage 一致的 wire 格式，用于把本轮完整消息链写回 transcript */
+export type TurnMessageWire = {
+	role: "user" | "assistant" | "system" | "toolResult";
+	content?: string;
+	toolCalls?: Array<{ id: string; name: string; arguments?: string }>;
+	toolCallId?: string;
+	isError?: boolean;
+};
+
+function agentMessagesToTurnWire(messages: AgentMessage[]): TurnMessageWire[] {
+	return messages.map((m) => {
+		const text =
+			m.content?.find((c) => (c as { type?: string }).type === "text") &&
+			(m.content as { type: "text"; text: string }[])[0]?.text;
+		const content = typeof text === "string" ? text : "";
+		if (m.role === "toolResult") {
+			return {
+				role: "toolResult" as const,
+				content,
+				toolCallId: m.toolCallId,
+				isError: m.isError,
+			};
+		}
+		if (m.role === "assistant") {
+			return {
+				role: "assistant" as const,
+				content,
+				...(m.toolCalls?.length && { toolCalls: m.toolCalls }),
+			};
+		}
+		if (m.role === "system") {
+			return { role: "system" as const, content };
+		}
+		return { role: "user" as const, content };
+	});
+}
+
 async function runOneTurn(
 	message: string,
 	initialMessagesWire?: Array<{
@@ -138,18 +175,27 @@ async function runOneTurn(
 		toolCallId?: string;
 		isError?: boolean;
 	}>,
-): Promise<{ text: string; toolCalls?: Array<{ name: string; arguments?: string }> }> {
+): Promise<{
+	text: string;
+	toolCalls?: Array<{ name: string; arguments?: string }>;
+	/** 本轮完整消息链（含 user、assistant 的 tool_calls、tool_result、最终 assistant），供 Gateway 写入 transcript */
+	turnMessages?: TurnMessageWire[];
+}> {
 	const gatewayInvoke = createGatewayInvoke(ws);
 	const session = await buildSessionFromU(rootDir, { agentDir, gatewayInvoke });
 	const initialMessages =
 		Array.isArray(initialMessagesWire) && initialMessagesWire.length > 0
 			? wireToAgentMessages(initialMessagesWire)
 			: undefined;
+	const initialLen = initialMessages?.length ?? 0;
 	const { state, config, streamFn } = createAgentContextFromU(session, { initialMessages });
 	const result = await runAgentTurnWithTools(state, config, streamFn, message, session.executeTool);
+	const newMessages = result.state.messages.slice(initialLen);
+	const turnMessages = newMessages.length > 0 ? agentMessagesToTurnWire(newMessages) : undefined;
 	return {
 		text: result.text,
 		toolCalls: result.toolCalls?.map((t) => ({ name: t.name, arguments: t.arguments })),
+		turnMessages,
 	};
 }
 

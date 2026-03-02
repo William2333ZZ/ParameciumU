@@ -23,6 +23,7 @@ import {
   removeSession,
   getTranscriptPathForSessionKey,
 } from "./session-store.js";
+import type { StoredMessage } from "./session-transcript.js";
 import {
   loadTranscript,
   appendTranscriptMessages,
@@ -53,6 +54,58 @@ function ok<T>(payload: T, meta?: Record<string, unknown>): GatewayResponse {
 
 function fail(error: ErrorShape): GatewayResponse {
   return { ok: false, error };
+}
+
+/** 远程 agent 返回的 turnMessages 与 StoredMessage 兼容的 wire 条目 */
+type TurnMessageWire = {
+  role: "user" | "assistant" | "system" | "toolResult";
+  content?: string;
+  toolCalls?: Array<{ id: string; name: string; arguments?: string }>;
+  toolCallId?: string;
+  isError?: boolean;
+};
+
+/**
+ * 根据远程 agent 的返回结果构建要写入 transcript 的消息链。
+ * 若有 turnMessages（含 assistant 的 tool_calls、tool_result、最终 assistant），则整链写入，恢复会话时模型能看到完整上下文，避免重复回复。
+ */
+function buildToAppendFromRemoteResult(
+  out: {
+    text: string;
+    turnMessages?: TurnMessageWire[];
+  },
+  userMessage: string,
+  resolvedKey: string,
+  screenshotsDir: string,
+  senderAgentId?: string,
+): StoredMessage[] {
+  const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(
+    saveScreenshotsInContent(out.text, resolvedKey, screenshotsDir),
+    screenshotsDir,
+  );
+  if (Array.isArray(out.turnMessages) && out.turnMessages.length > 0) {
+    const lastIdx = out.turnMessages.length - 1;
+    return out.turnMessages.map((m, i) => {
+      const base: StoredMessage = {
+        role: m.role as StoredMessage["role"],
+        content: m.content,
+        ...(m.toolCalls && { toolCalls: m.toolCalls }),
+        ...(m.toolCallId !== undefined && { toolCallId: m.toolCallId }),
+        ...(m.isError !== undefined && { isError: m.isError }),
+      };
+      if (m.role === "assistant" && i === lastIdx) {
+        return { ...base, content: assistantContent, ...(senderAgentId && { senderAgentId }) };
+      }
+      if (m.role === "assistant" && senderAgentId) {
+        return { ...base, senderAgentId };
+      }
+      return base;
+    });
+  }
+  return [
+    { role: "user", content: userMessage },
+    { role: "assistant", content: assistantContent, ...(senderAgentId && { senderAgentId }) },
+  ];
 }
 
 /** 群聊：从 message 解析 @agentId，或返回 leadAgentId / 第一个 participant */
@@ -487,10 +540,10 @@ export function createHandlers(ctx: HandlersContext) {
             resolveOpts,
           );
           const stored = loadTranscript(transcriptPath, remoteEntry?.leafId ?? undefined);
-          // 不把 assistant 的 toolCalls 传给 LLM：transcript 未存 tool 结果，会导致 API 400
           const initialMessages = stored.map((m) => ({
             role: m.role,
             content: m.content,
+            ...(m.role === "assistant" && m.toolCalls?.length && { toolCalls: m.toolCalls }),
             ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
             ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
           }));
@@ -503,16 +556,10 @@ export function createHandlers(ctx: HandlersContext) {
               clearTimeout(timeout);
               ctx.pendingInvokes.delete(id);
               const out = typeof result === "object" && result !== null && "text" in result
-                ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
+                ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
                 : { text: String(result ?? ""), toolCalls: [] };
               try {
-                // base64 截图落盘并替换为 URL；持久化与返回给 Agent 均用替换后内容，避免 Agent 把 base64 再发给 LLM 导致超 token
-                const withUrls = saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir);
-                const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
-                const toAppend = [
-                  { role: "user" as const, content: message as string },
-                  { role: "assistant" as const, content: assistantContent },
-                ];
+                const toAppend = buildToAppendFromRemoteResult(out, message as string, resolvedKey, ctx.screenshotsDir);
                 const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
                 updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
               } catch (_) {}
@@ -550,6 +597,7 @@ export function createHandlers(ctx: HandlersContext) {
             const initialMessages = stored.map((m) => ({
               role: m.role,
               content: m.content,
+              ...(m.role === "assistant" && m.toolCalls?.length && { toolCalls: m.toolCalls }),
               ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
               ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
             }));
@@ -562,15 +610,10 @@ export function createHandlers(ctx: HandlersContext) {
                 clearTimeout(timeout);
                 ctx.pendingInvokes.delete(id);
                 const out = typeof result === "object" && result !== null && "text" in result
-                  ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
+                  ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
                   : { text: String(result ?? ""), toolCalls: [] };
                 try {
-                  const withUrls = saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir);
-                  const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
-                  const toAppend = [
-                    { role: "user" as const, content: message as string },
-                    { role: "assistant" as const, content: assistantContent },
-                  ];
+                  const toAppend = buildToAppendFromRemoteResult(out, message as string, resolvedKey, ctx.screenshotsDir);
                   const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
                   updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
                 } catch (_) {}
@@ -652,6 +695,7 @@ export function createHandlers(ctx: HandlersContext) {
           const initialMessages = stored.map((m) => ({
             role: m.role,
             content: m.content,
+            ...(m.role === "assistant" && m.toolCalls?.length && { toolCalls: m.toolCalls }),
             ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
             ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
           }));
@@ -701,6 +745,7 @@ export function createHandlers(ctx: HandlersContext) {
           const initialMessages = stored.map((m) => ({
             role: m.role,
             content: m.content,
+            ...(m.role === "assistant" && m.toolCalls?.length && { toolCalls: m.toolCalls }),
             ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
             ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
           }));
@@ -754,6 +799,7 @@ export function createHandlers(ctx: HandlersContext) {
         const initialMessages = stored.map((m) => ({
           role: m.role,
           content: m.content,
+          ...(m.role === "assistant" && m.toolCalls?.length && { toolCalls: m.toolCalls }),
           ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
           ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
         }));
@@ -775,15 +821,11 @@ export function createHandlers(ctx: HandlersContext) {
             clearTimeout(timeout);
             pendingInvokes.delete(id);
             const out = typeof result === "object" && result !== null && "text" in result
-              ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
+              ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
               : { text: String(result ?? ""), toolCalls: [] };
             try {
-              const withUrls = saveScreenshotsInContent(out.text, rkey, ctx.screenshotsDir);
-              const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
-              const toAppend = [
-                { role: "user" as const, content: msg },
-                { role: "assistant" as const, content: assistantContent, ...(res.entry?.sessionType === "group" && { senderAgentId: agentId }) },
-              ];
+              const senderAgentId = res.entry?.sessionType === "group" ? agentId : undefined;
+              const toAppend = buildToAppendFromRemoteResult(out, msg, rkey, ctx.screenshotsDir, senderAgentId);
               const newLeafId = appendTranscriptMessages(tpath, res.entry?.leafId ?? null, toAppend);
               updateSessionEntry(sessionStorePath, rkey, { leafId: newLeafId, updatedAt: Date.now() });
             } catch (_) {}
@@ -809,6 +851,7 @@ export function createHandlers(ctx: HandlersContext) {
         const initialMessages = stored.map((m) => ({
           role: m.role,
           content: m.content,
+          ...(m.role === "assistant" && m.toolCalls?.length && { toolCalls: m.toolCalls }),
           ...(m.role === "toolResult" && m.toolCallId && { toolCallId: m.toolCallId }),
           ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
         }));
@@ -826,15 +869,11 @@ export function createHandlers(ctx: HandlersContext) {
             clearTimeout(timeout);
             pendingInvokes.delete(id);
             const out = typeof result === "object" && result !== null && "text" in result
-              ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }> })
+              ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
               : { text: String(result ?? ""), toolCalls: [] };
             try {
-              const withUrls = saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir);
-              const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(withUrls, ctx.screenshotsDir);
-              const toAppend = [
-                { role: "user" as const, content: message },
-                { role: "assistant" as const, content: assistantContent, ...(isGroup && { senderAgentId: agentId }) },
-              ];
+              const senderAgentId = isGroup ? agentId : undefined;
+              const toAppend = buildToAppendFromRemoteResult(out, message, resolvedKey, ctx.screenshotsDir, senderAgentId);
               const newLeafId = appendTranscriptMessages(transcriptPath, resolvedEntry?.leafId ?? null, toAppend);
               updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
             } catch (_) {}
