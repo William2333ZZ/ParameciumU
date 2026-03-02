@@ -165,6 +165,7 @@ export function createHandlers(ctx: HandlersContext) {
     persistConnectorMappings,
     sessionStorePath,
     mainTranscriptPath,
+    broadcast,
   } = ctx;
   const resetPolicy = getSessionResetPolicy();
 
@@ -549,26 +550,26 @@ export function createHandlers(ctx: HandlersContext) {
             ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
           }));
           const id = nextInvokeId();
-          return new Promise<GatewayResponse>((resolve) => {
-            const timeout = setTimeout(() => {
-              if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
-            }, 120_000);
-            ctx.pendingInvokes.set(id, (result: unknown) => {
-              clearTimeout(timeout);
-              ctx.pendingInvokes.delete(id);
-              const out = typeof result === "object" && result !== null && "text" in result
-                ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
-                : { text: String(result ?? ""), toolCalls: [] };
-              try {
-                const toAppend = buildToAppendFromRemoteResult(out, message as string, resolvedKey, ctx.screenshotsDir);
-                const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
-                updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
-              } catch (_) {}
-              const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
-              resolve(ok({ ...out, text: textForAgent }));
-            });
-            entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
+          const timeout = setTimeout(() => {
+            if (ctx.pendingInvokes.delete(id)) broadcast?.("agent.run.done", { runId: id, text: "(timeout)", toolCalls: [] });
+          }, 120_000);
+          ctx.pendingInvokes.set(id, (result: unknown) => {
+            clearTimeout(timeout);
+            ctx.pendingInvokes.delete(id);
+            const out = typeof result === "object" && result !== null && "text" in result
+              ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
+              : { text: String(result ?? ""), toolCalls: [] };
+            try {
+              const toAppend = buildToAppendFromRemoteResult(out, message as string, resolvedKey, ctx.screenshotsDir);
+              const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
+              updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
+            } catch (_) {}
+            const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
+            broadcast?.("agent.run.done", { runId: id, text: textForAgent, toolCalls: out.toolCalls });
           });
+          broadcast?.("agent.run.started", { runId: id });
+          entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
+          return ok({ runId: id });
         }
       }
 
@@ -603,26 +604,26 @@ export function createHandlers(ctx: HandlersContext) {
               ...(m.role === "toolResult" && m.isError !== undefined && { isError: m.isError }),
             }));
             const id = nextInvokeId();
-            return new Promise<GatewayResponse>((resolve) => {
-              const timeout = setTimeout(() => {
-                if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
-              }, 120_000);
-              ctx.pendingInvokes.set(id, (result: unknown) => {
-                clearTimeout(timeout);
-                ctx.pendingInvokes.delete(id);
-                const out = typeof result === "object" && result !== null && "text" in result
-                  ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
-                  : { text: String(result ?? ""), toolCalls: [] };
-                try {
-                  const toAppend = buildToAppendFromRemoteResult(out, message as string, resolvedKey, ctx.screenshotsDir);
-                  const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
-                  updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
-                } catch (_) {}
-                const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
-                resolve(ok({ ...out, text: textForAgent }));
-              });
-              entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
+            const timeout = setTimeout(() => {
+              if (ctx.pendingInvokes.delete(id)) broadcast?.("agent.run.done", { runId: id, text: "(timeout)", toolCalls: [] });
+            }, 120_000);
+            ctx.pendingInvokes.set(id, (result: unknown) => {
+              clearTimeout(timeout);
+              ctx.pendingInvokes.delete(id);
+              const out = typeof result === "object" && result !== null && "text" in result
+                ? (result as { text: string; toolCalls?: Array<{ name: string; arguments?: string }>; turnMessages?: TurnMessageWire[] })
+                : { text: String(result ?? ""), toolCalls: [] };
+              try {
+                const toAppend = buildToAppendFromRemoteResult(out, message as string, resolvedKey, ctx.screenshotsDir);
+                const newLeafId = appendTranscriptMessages(transcriptPath, remoteEntry?.leafId ?? null, toAppend);
+                updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
+              } catch (_) {}
+              const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir), ctx.screenshotsDir);
+              broadcast?.("agent.run.done", { runId: id, text: textForAgent, toolCalls: out.toolCalls });
             });
+            broadcast?.("agent.run.started", { runId: id });
+            entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload: { id, __agent: true, message, initialMessages } }));
+            return ok({ runId: id });
           }
         }
       }
@@ -991,6 +992,14 @@ export function createHandlers(ctx: HandlersContext) {
         });
         entry.ws.send(JSON.stringify({ event: "node.invoke.request", payload }));
       });
+    },
+
+    "node.invoke.chunk": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+      const id = params?.id;
+      const chunk = params?.chunk;
+      if (id == null) return fail(err(INVALID_REQUEST, "node.invoke.chunk requires params.id"));
+      broadcast?.("agent.run.chunk", { runId: String(id), chunk: typeof chunk === "string" ? chunk : "" });
+      return ok({ id, accepted: true });
     },
 
     "node.invoke.result": async (params: Record<string, unknown>): Promise<GatewayResponse> => {

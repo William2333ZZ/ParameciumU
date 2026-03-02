@@ -44,7 +44,7 @@ async function handleFileUpload(
 	}
 }
 import { buildSessionFromU, createAgentContextFromU } from "@monou/agent-from-dir";
-import { type AgentMessage, runAgentTurnWithTools } from "@monou/agent-sdk";
+import { type AgentMessage, runAgentTurnWithTools, runAgentTurnWithToolsStreaming } from "@monou/agent-sdk";
 import { type CronJob, CronStore } from "@monou/cron";
 import { runScheduler } from "@monou/cron/scheduler";
 import { createId } from "@monou/shared";
@@ -232,6 +232,49 @@ async function runOneTurn(
 	};
 }
 
+/** 流式一轮：每段文本通过 onTextChunk 发送 node.invoke.chunk，供前端 Cursor 式打字机展示 */
+async function runOneTurnStreaming(
+	message: string,
+	invokeId: string,
+	sendChunk: (chunk: string) => void,
+	initialMessagesWire?: Array<{
+		role: string;
+		content?: string;
+		toolCalls?: Array<{ id?: string; name: string; arguments?: string }>;
+		toolCallId?: string;
+		isError?: boolean;
+	}>,
+): Promise<{
+	text: string;
+	toolCalls?: Array<{ name: string; arguments?: string }>;
+	turnMessages?: TurnMessageWire[];
+}> {
+	const gatewayInvoke = createGatewayInvoke(ws);
+	const session = await buildSessionFromU(rootDir, { agentDir, gatewayInvoke });
+	const initialMessages =
+		Array.isArray(initialMessagesWire) && initialMessagesWire.length > 0
+			? wireToAgentMessages(initialMessagesWire)
+			: undefined;
+	const initialLen = initialMessages?.length ?? 0;
+	const { state, config, streamFn } = createAgentContextFromU(session, { initialMessages });
+	const result = await runAgentTurnWithToolsStreaming(
+		state,
+		config,
+		streamFn,
+		message,
+		session.executeTool,
+		undefined,
+		sendChunk,
+	);
+	const newMessages = result.state.messages.slice(initialLen);
+	const turnMessages = newMessages.length > 0 ? agentMessagesToTurnWire(newMessages) : undefined;
+	return {
+		text: result.text,
+		toolCalls: result.toolCalls?.map((t) => ({ name: t.name, arguments: t.arguments })),
+		turnMessages,
+	};
+}
+
 /** 从首尾剥离 HEARTBEAT_OK；若剥离后内容 ≤ ackMaxChars 则视为「仅 OK」不下发（与 OpenClaw 一致）。 */
 function stripHeartbeatOk(raw: string, ackMaxChars: number): { shouldSkip: boolean; text: string } {
 	let text = raw.trim();
@@ -364,8 +407,16 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
 		const prevCron = process.env.CRON_STORE;
 		process.env.MEMORY_WORKSPACE = agentDir;
 		process.env.CRON_STORE = cronStorePath;
+		const sendChunk = (chunk: string) => {
+			ws.send(JSON.stringify({ method: "node.invoke.chunk", params: { id: invokeId, chunk } }));
+		};
 		try {
-			const result = await runOneTurn(payload.message, payload.initialMessages);
+			const result = await runOneTurnStreaming(
+				payload.message,
+				typeof invokeId === "string" ? invokeId : String(invokeId),
+				sendChunk,
+				payload.initialMessages,
+			);
 			ws.send(
 				JSON.stringify({
 					method: "node.invoke.result",
