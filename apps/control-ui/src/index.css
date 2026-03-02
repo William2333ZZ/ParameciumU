@@ -375,6 +375,10 @@ a {
   color: var(--bg);
 }
 
+.chat-msg.user .chat-msg-content {
+  white-space: pre-wrap;
+}
+
 .chat-msg.agent {
   align-self: flex-start;
   background: var(--surface);
@@ -632,12 +636,20 @@ a {
   border-top: 1px solid var(--border);
 }
 
-.chat-form input {
+.chat-form input,
+.chat-form textarea {
   flex: 1;
   padding: 0.5rem 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
+  font: inherit;
+}
+
+.chat-form textarea {
+  min-height: 2.5rem;
+  max-height: 12rem;
+  resize: vertical;
 }
 
 .chat-form button {

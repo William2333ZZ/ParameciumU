@@ -901,11 +901,18 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
               send();
             }}
           >
-            <input
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isGroup ? "输入消息… /all 让所有人回复 /task 发布任务轮转完成" : "输入消息…"}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder={isGroup ? "输入消息… /all 让所有人回复 /task 发布任务轮转完成" : "输入消息…（Enter 发送，Shift+Enter 换行）"}
               disabled={loading}
+              rows={1}
             />
             {loading ? (
               <button type="button" className="chat-stop-btn" onClick={abortRun}>
