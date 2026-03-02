@@ -74,7 +74,6 @@ export const GATEWAY_METHODS = [
 	"node.list",
 	"node.invoke",
 	"node.invoke.result",
-	"node.invoke.chunk",
 	"file.upload",
 	"agent.file.upload.result",
 	"connector.mapping.list",
