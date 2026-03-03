@@ -1,0 +1,10 @@
+{
+  "name": "solution-agent",
+  "private": true,
+  "description": "需求解决方法智能体：依赖仅在此目录，不污染仓库根",
+  "type": "module",
+  "dependencies": {
+    "docx": "^9.6.0",
+    "jszip": "^3.10.1"
+  }
+}

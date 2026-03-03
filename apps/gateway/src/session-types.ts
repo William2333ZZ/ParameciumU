@@ -4,34 +4,34 @@
  */
 
 export type SessionEntry = {
-  sessionId: string;
-  updatedAt: number;
-  /** 当前叶节点 entry id（树形 transcript 下生效，省略表示线性或未初始化） */
-  leafId?: string | null;
-  /** 可选：transcript 文件路径（默认在 .gateway/sessions/transcripts/ 下） */
-  transcriptPath?: string;
-  /** 可选：展示名 */
-  displayName?: string;
-  /** 可选：channel 标识 */
-  channel?: string;
-  /** 可选：上下文 token 数（agent 执行后回写） */
-  contextTokens?: number;
-  /** 可选：总 token 数 */
-  totalTokens?: number;
-  /** 可选：模型标识 */
-  model?: string;
-  /** 可选：思考级别 */
-  thinkingLevel?: string;
-  /** 可选：发送策略覆盖 allow | deny */
-  sendPolicy?: "allow" | "deny";
-  /** 可选：该会话指定使用的 agent（connector 入站时可由用户切换，如「与 pilot 对话」） */
-  agentIdOverride?: string;
-  /** 可选：会话类型，single=单聊，group=群聊（多 agent + 用户） */
-  sessionType?: "single" | "group";
-  /** 可选：群聊参与 agent 列表，仅 sessionType=group 时有效 */
-  participantAgentIds?: string[];
-  /** 可选：群聊默认由谁回复（无 @ 时），仅 sessionType=group 时有效 */
-  leadAgentId?: string;
+	sessionId: string;
+	updatedAt: number;
+	/** 当前叶节点 entry id（树形 transcript 下生效，省略表示线性或未初始化） */
+	leafId?: string | null;
+	/** 可选：transcript 文件路径（默认在 .gateway/sessions/transcripts/ 下） */
+	transcriptPath?: string;
+	/** 可选：展示名 */
+	displayName?: string;
+	/** 可选：channel 标识 */
+	channel?: string;
+	/** 可选：上下文 token 数（agent 执行后回写） */
+	contextTokens?: number;
+	/** 可选：总 token 数 */
+	totalTokens?: number;
+	/** 可选：模型标识 */
+	model?: string;
+	/** 可选：思考级别 */
+	thinkingLevel?: string;
+	/** 可选：发送策略覆盖 allow | deny */
+	sendPolicy?: "allow" | "deny";
+	/** 可选：该会话指定使用的 agent（connector 入站时可由用户切换，如「与 pilot 对话」） */
+	agentIdOverride?: string;
+	/** 可选：会话类型，single=单聊，group=群聊（多 agent + 用户） */
+	sessionType?: "single" | "group";
+	/** 可选：群聊参与 agent 列表，仅 sessionType=group 时有效 */
+	participantAgentIds?: string[];
+	/** 可选：群聊默认由谁回复（无 @ 时），仅 sessionType=group 时有效 */
+	leadAgentId?: string;
 };
 
 export type SessionStore = Record<string, SessionEntry>;

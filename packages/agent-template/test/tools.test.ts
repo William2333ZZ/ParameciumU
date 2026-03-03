@@ -21,9 +21,9 @@ describe("base_skill tools (read, write, edit, bash)", () => {
 	});
 
 	describe("tools definition", () => {
-		it("exports read, bash, edit, write", () => {
+		it("exports read, bash, edit, write, agent_restart", () => {
 			const names = tools.map((t) => t.name).sort();
-			expect(names).toEqual(["bash", "edit", "read", "write"]);
+			expect(names).toEqual(["agent_restart", "bash", "edit", "read", "write"]);
 		});
 	});
 
@@ -110,6 +110,21 @@ describe("base_skill tools (read, write, edit, bash)", () => {
 			const r = await executeTool("bash", { command: "" });
 			expect(r.isError).toBe(true);
 			expect(r.content).toContain("command");
+		});
+	});
+
+	describe("agent_restart", () => {
+		it("returns error when AGENT_DIR is not set", async () => {
+			const prev = process.env.AGENT_DIR;
+			delete process.env.AGENT_DIR;
+			delete process.env.AGENT_ROOT_DIR;
+			try {
+				const r = await executeTool("agent_restart", {});
+				expect(r.isError).toBe(true);
+				expect(r.content).toMatch(/AGENT_DIR|agent-client/);
+			} finally {
+				if (prev !== undefined) process.env.AGENT_DIR = prev;
+			}
 		});
 	});
 });

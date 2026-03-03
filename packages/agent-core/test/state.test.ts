@@ -6,7 +6,10 @@ import type { AgentMessage } from "@monou/agent-core";
 import { stripOrphanedToolResults } from "@monou/agent-core";
 import { describe, expect, it } from "vitest";
 
-function msg(role: AgentMessage["role"], opts?: { toolCalls?: AgentMessage["toolCalls"]; toolCallId?: string }): AgentMessage {
+function msg(
+	role: AgentMessage["role"],
+	opts?: { toolCalls?: AgentMessage["toolCalls"]; toolCallId?: string },
+): AgentMessage {
 	return {
 		id: `id-${Math.random().toString(36).slice(2, 9)}`,
 		role,
@@ -30,6 +33,32 @@ describe("stripOrphanedToolResults", () => {
 		expect(out[1]!.toolCallId).toBe(callId);
 	});
 
+	it("keeps multiple toolResults after one assistant with multiple tool_calls", () => {
+		const callA = "call_A";
+		const callB = "call_B";
+		const assistantMsg: AgentMessage = {
+			id: "ast",
+			role: "assistant",
+			content: [{ type: "text", text: " " }],
+			timestamp: Date.now(),
+			toolCalls: [
+				{ id: callA, name: "bash", arguments: "{}" },
+				{ id: callB, name: "bash", arguments: "{}" },
+			],
+		};
+		const messages: AgentMessage[] = [
+			assistantMsg,
+			msg("toolResult", { toolCallId: callA }),
+			msg("toolResult", { toolCallId: callB }),
+		];
+		const out = stripOrphanedToolResults(messages);
+		expect(out).toHaveLength(3);
+		expect(out[1]!.role).toBe("toolResult");
+		expect(out[1]!.toolCallId).toBe(callA);
+		expect(out[2]!.role).toBe("toolResult");
+		expect(out[2]!.toolCallId).toBe(callB);
+	});
+
 	it("strips toolResult when immediately after assistant without that tool_call", () => {
 		const messages: AgentMessage[] = [
 			msg("assistant"), // no toolCalls
@@ -41,10 +70,7 @@ describe("stripOrphanedToolResults", () => {
 	});
 
 	it("strips toolResult when after user (no preceding assistant with tool_call)", () => {
-		const messages: AgentMessage[] = [
-			msg("user"),
-			msg("toolResult", { toolCallId: "call_xyz" }),
-		];
+		const messages: AgentMessage[] = [msg("user"), msg("toolResult", { toolCallId: "call_xyz" })];
 		const out = stripOrphanedToolResults(messages);
 		expect(out).toHaveLength(1);
 		expect(out[0]!.role).toBe("user");
@@ -63,6 +89,13 @@ describe("stripOrphanedToolResults", () => {
 		];
 		const out = stripOrphanedToolResults(messages);
 		expect(out).toHaveLength(6);
-		expect(out.map((m) => m.role)).toEqual(["assistant", "toolResult", "assistant", "assistant", "user", "assistant"]);
+		expect(out.map((m) => m.role)).toEqual([
+			"assistant",
+			"toolResult",
+			"assistant",
+			"assistant",
+			"user",
+			"assistant",
+		]);
 	});
 });

@@ -5,18 +5,17 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": { "monou-gateway": "./dist/index.js", "monou-gateway-agent": "./dist/agent-client.js" },
+  "bin": { "monou-gateway": "./dist/index.js" },
   "files": ["dist", "hooks", "README.md"],
   "scripts": {
     "clean": "rm -rf dist",
     "build": "npx tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "start": "node dist/index.js",
-    "agent": "node dist/agent-client.js",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@monou/agent-sdk": "^0.1.0",
+    "dotenv": "^16.6.1",
     "@monou/cron": "^0.1.0",
     "@monou/gateway": "file:../../packages/gateway",
     "@monou/shared": "^0.1.0",

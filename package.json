@@ -27,7 +27,6 @@
     "browser-node": "node apps/nodes/browser-node/dist/index.js",
     "sandbox-node": "node apps/nodes/sandbox-node/dist/index.js",
     "feishu-node": "node apps/nodes/feishu-node/dist/index.js",
-    "gateway:agent": "node apps/gateway/dist/agent-client.js",
     "test:gateway": "npx tsx scripts/test-gateway.ts",
     "test:gateway-e2e": "npm run build && npx tsx scripts/test-gateway-e2e.ts",
     "test:scenario": "npm run build && npx tsx scripts/test-scenario-stock-agent.ts",

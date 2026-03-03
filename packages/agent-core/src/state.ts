@@ -109,9 +109,10 @@ export function appendMessage(state: AgentState, message: AgentMessage): AgentSt
 }
 
 /**
- * Remove toolResult messages that are not immediately preceded by an assistant message
- * with a matching tool_call id. Prevents OpenAI (and similar) API 400 "No tool call found for function call output".
- * Call this on the message list before sending to the LLM when loading from transcript or other external source.
+ * Remove toolResult messages that are not preceded by an assistant message with a matching tool_call id.
+ * When an assistant has multiple tool_calls, tool results appear in a block; we keep each if the nearest
+ * preceding assistant contains that tool_call_id, or the previous message is a toolResult we already kept.
+ * Prevents OpenAI 400 "tool_call_id did not have response messages".
  */
 export function stripOrphanedToolResults(messages: AgentMessage[]): AgentMessage[] {
 	const out: AgentMessage[] = [];
@@ -122,9 +123,15 @@ export function stripOrphanedToolResults(messages: AgentMessage[]): AgentMessage
 			continue;
 		}
 		const prev = i > 0 ? messages[i - 1] : undefined;
-		const prevHasCall =
-			prev?.role === "assistant" &&
-			prev.toolCalls?.some((tc) => tc.id === m.toolCallId);
+		const prevIsKeptToolResult = prev?.role === "toolResult" && out[out.length - 1]?.id === prev.id;
+		if (prevIsKeptToolResult) {
+			out.push(m);
+			continue;
+		}
+		let j = i - 1;
+		while (j >= 0 && messages[j]?.role === "toolResult") j--;
+		const prevAssistant = j >= 0 && messages[j]?.role === "assistant" ? messages[j] : undefined;
+		const prevHasCall = prevAssistant?.toolCalls?.some((tc) => tc.id === m.toolCallId);
 		if (prevHasCall) out.push(m);
 	}
 	return out;

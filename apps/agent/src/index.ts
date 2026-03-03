@@ -1,15 +1,20 @@
 #!/usr/bin/env node
+
 /**
  * 启动 agent 的 app：连 Gateway、注册、收 node.invoke 派发、用 agent-from-dir 跑一轮并回传。
  * 连接成功后自动确保存在 heartbeat 定时任务（与 OpenClaw 语义对齐），由同一 runScheduler 到点跑 agent、可选 push。
  * 用法: GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium node dist/index.js
  */
 
-import "dotenv/config";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { config as dotenvConfig } from "dotenv";
+
+dotenvConfig();
 
 /** 用户上传文件落盘目录（在 agent 所在机器，非 Gateway）；Gateway 通过 agent.file.upload 事件将文件发到此处 */
 const UAGENT_TMP = path.join(os.homedir(), ".uagent_tmp");
@@ -43,6 +48,7 @@ async function handleFileUpload(
 		send({ method: "agent.file.upload.result", params: { id, error: errMsg } });
 	}
 }
+
 import { buildSessionFromU, createAgentContextFromU } from "@monou/agent-from-dir";
 import { type AgentMessage, runAgentTurnWithTools } from "@monou/agent-sdk";
 import { type CronJob, CronStore } from "@monou/cron";
@@ -72,6 +78,10 @@ if (!AGENT_DIR) {
 }
 
 const agentDir = path.resolve(AGENT_DIR);
+const agentEnvPath = path.join(agentDir, ".env");
+if (existsSync(agentEnvPath)) {
+	dotenvConfig({ path: agentEnvPath, override: true });
+}
 const cronStorePath = path.join(agentDir, "cron", "jobs.json");
 const rootDir = process.cwd();
 
@@ -85,6 +95,15 @@ const DEFAULT_HEARTBEAT_PROMPT =
 const HEARTBEAT_OK = "HEARTBEAT_OK";
 const HEARTBEAT_ACK_MAX_CHARS = 300;
 const HEARTBEAT_MD_FILENAME = "HEARTBEAT.md";
+
+/** 新智能体上线后是否主动触发一次回复（AGENT_ONLINE_GREETING=0 或 false 关闭） */
+const _onlineG = (process.env.AGENT_ONLINE_GREETING ?? "1").trim();
+const onlineGreetingEnabled = _onlineG !== "0" && _onlineG.toLowerCase() !== "false";
+const onlineGreetingMessage =
+	(process.env.AGENT_ONLINE_GREETING_MESSAGE ?? "请简单汇报当前状态或打招呼。（你刚上线）").trim() ||
+	"请简单汇报当前状态或打招呼。（你刚上线）";
+/** 上线问候是否已发送（与 agent-client 一致，只发一次） */
+let onlineGreetingSent = false;
 
 const pending = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
 
@@ -208,6 +227,7 @@ async function runOneTurn(
 		toolCallId?: string;
 		isError?: boolean;
 	}>,
+	opts?: { invokeId?: string },
 ): Promise<{
 	text: string;
 	toolCalls?: Array<{ name: string; arguments?: string }>;
@@ -222,7 +242,30 @@ async function runOneTurn(
 			: undefined;
 	const initialLen = initialMessages?.length ?? 0;
 	const { state, config, streamFn } = createAgentContextFromU(session, { initialMessages });
-	const result = await runAgentTurnWithTools(state, config, streamFn, message, session.executeTool);
+	const onProgress =
+		opts?.invokeId != null
+			? (roundMessages: AgentMessage[]) => {
+					const wire = agentMessagesToTurnWire(roundMessages);
+					if (wire.length > 0) {
+						ws.send(
+							JSON.stringify({
+								method: "node.invoke.progress",
+								params: { id: opts.invokeId, turnMessages: wire },
+								id: `progress-${opts.invokeId}`,
+							}),
+						);
+					}
+				}
+			: undefined;
+	const result = await runAgentTurnWithTools(
+		state,
+		config,
+		streamFn,
+		message,
+		session.executeTool,
+		undefined,
+		onProgress,
+	);
 	const newMessages = result.state.messages.slice(initialLen);
 	const turnMessages = newMessages.length > 0 ? agentMessagesToTurnWire(newMessages) : undefined;
 	return {
@@ -365,7 +408,9 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
 		process.env.MEMORY_WORKSPACE = agentDir;
 		process.env.CRON_STORE = cronStorePath;
 		try {
-			const result = await runOneTurn(payload.message, payload.initialMessages);
+			const result = await runOneTurn(payload.message, payload.initialMessages, {
+				invokeId: typeof invokeId === "string" ? invokeId : undefined,
+			});
 			ws.send(
 				JSON.stringify({
 					method: "node.invoke.result",
@@ -373,6 +418,23 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
 					id: `result-${invokeId}`,
 				}),
 			);
+			// agent_restart 工具只设标志，在此处 result 已发回 Gateway 后执行实际重启，保证回复已落盘
+			const pr = process as NodeJS.Process & { __agent_restart_after_response?: boolean };
+			if (pr.__agent_restart_after_response) {
+				pr.__agent_restart_after_response = false;
+				const scriptPath = process.argv[1];
+				if (scriptPath) {
+					const monoURoot = path.resolve(agentDir, "..");
+					const child = spawn(process.execPath, [scriptPath], {
+						env: process.env,
+						detached: true,
+						stdio: "ignore",
+						cwd: monoURoot,
+					});
+					child.unref();
+				}
+				process.exit(0);
+			}
 		} catch (err) {
 			ws.send(
 				JSON.stringify({
@@ -424,6 +486,22 @@ const onFirstMessage = async (data: Buffer | ArrayBuffer) => {
 			await ensureHeartbeatJob(cronStorePath);
 		} catch (e) {
 			console.warn("[heartbeat] ensureHeartbeatJob failed:", (e as Error).message);
+		}
+		// 新智能体上线主动触发一次回复到 main session（只发一次）
+		if (onlineGreetingEnabled && onlineGreetingMessage && !onlineGreetingSent) {
+			onlineGreetingSent = true;
+			const sessionKey = `agent:${AGENT_ID}:main`;
+			(async () => {
+				try {
+					await request(ws, "chat.send", {
+						agentId: AGENT_ID,
+						sessionKey,
+						message: onlineGreetingMessage,
+					});
+				} catch (e) {
+					console.warn("[agent] 上线首条回复失败:", e instanceof Error ? e.message : String(e));
+				}
+			})();
 		}
 		runScheduler(cronStorePath, {
 			log: {

@@ -167,7 +167,9 @@ export class MainView extends Container implements Component {
 
 	render(width: number): string[] {
 		const lines: string[] = [];
-		lines.push(truncateToWidth(theme.header("ParameciumU TUI") + theme.dim(" · ") + theme.fg(this.gw.url), width, ""));
+		lines.push(
+			truncateToWidth(theme.header("ParameciumU TUI") + theme.dim(" · ") + theme.fg(this.gw.url), width, ""),
+		);
 		lines.push(truncateToWidth(theme.separatorLine(width - 2, "─"), width, ""));
 		lines.push(this.renderNavLine(width));
 		lines.push(truncateToWidth(theme.dim("  1-5 切换  j/k 下一/上一 Tab"), width, ""));

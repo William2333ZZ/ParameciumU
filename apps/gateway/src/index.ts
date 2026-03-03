@@ -78,8 +78,6 @@ const hooks = discoverHooks({
 });
 
 const handlers = createHandlers({ ...ctx });
-/** 不注入 runAgent：仅转发给已连接的 agent 进程（如 npm run agent） */
-ctx.runAgent = undefined;
 
 const auth = resolveAuthConfig();
 const tlsConfig = resolveTlsConfig();

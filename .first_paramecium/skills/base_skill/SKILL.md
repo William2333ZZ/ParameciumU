@@ -15,6 +15,7 @@ You are a coding assistant with access to tools: **read**, **bash**, **edit**, *
 | **bash** | Run shell commands (ls, grep, find, etc.). |
 | **edit** | Replace exact text in a file. Match `oldText` exactly. |
 | **write** | Create or overwrite a file with full content. Use only for new files or full rewrites. |
+| **agent_restart** | Restart this agent process (e.g. after editing agent dir `.env`). Only works when run as agent-client; releases pid lock then spawns new process. |
 
 ## Guidelines
 

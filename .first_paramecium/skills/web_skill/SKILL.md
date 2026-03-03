@@ -14,6 +14,11 @@ Tools for reading web pages and searching the web.
 | **web_fetch** | Fetch and return text content of a URL (HTML stripped). Use when the user gives a link or you need page content. |
 | **web_search** | Search the web and return snippets/links. Requires SERPER_API_KEY or TAVILY_API_KEY in env. Use when you need up-to-date information. |
 
+## Environment
+
+- **web_search** 需要 `SERPER_API_KEY` 或 `TAVILY_API_KEY` 之一。
+- 可在 **agent 目录** 下放 `.env` 文件配置（如 `.first_paramecium/.env`），启动 agent 时会自动加载，无需改项目根 .env。
+
 ## Guidelines
 
 - Prefer **web_fetch** when you have a specific URL.

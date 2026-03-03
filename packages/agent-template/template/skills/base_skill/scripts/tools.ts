@@ -52,6 +52,12 @@ export const tools: AgentTool[] = [
 			required: ["path", "content"],
 		},
 	},
+	{
+		name: "agent_restart",
+		description:
+			"自我重启当前 agent 进程（使修改 .env 等配置生效）。仅在以 agent-client 连接 Gateway 时有效；会先释放 pid 锁再启动新进程后退出。",
+		parameters: { type: "object", properties: {}, required: [] },
+	},
 ];
 
 function resolvePath(raw: string): string {
@@ -99,6 +105,22 @@ export async function executeTool(
 				if (!path) return { content: "path is required", isError: true };
 				writeFileSync(path, content, "utf-8");
 				return { content: `Wrote ${path}` };
+			}
+			case "agent_restart": {
+				const agentDirEnv = (process.env.AGENT_DIR ?? process.env.AGENT_ROOT_DIR ?? "").trim();
+				if (!agentDirEnv) {
+					return {
+						content: "agent_restart 需要 AGENT_DIR 环境变量（仅在以 agent-client 或 npm run agent 方式运行时可用）",
+						isError: true,
+					};
+				}
+				const scriptPath = process.argv[1];
+				if (!scriptPath) {
+					return { content: "无法获取当前脚本路径，无法重启", isError: true };
+				}
+				// 只设标志，不在此处 spawn/exit，等本轮 result 发回 Gateway 后再由 runner 执行重启，避免回复丢失
+				(process as NodeJS.Process & { __agent_restart_after_response?: boolean }).__agent_restart_after_response = true;
+				return { content: "已安排重启；本轮回复发送到 Gateway 后将自动重启进程（新进程会加载最新 .env 等配置）。" };
 			}
 			default:
 				return { content: `Unknown tool: ${name}`, isError: true };
