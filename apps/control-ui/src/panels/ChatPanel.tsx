@@ -610,13 +610,19 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     }
   }, [currentRunId]);
 
-  // 只注册一次 run.chunk / run.done，用 ref 判断 runId，避免 run.done 早于 effect 触发而漏接导致一直「思考」
+  // 只注册一次 run.chunk / run.done / run.progress，用 ref 判断 runId，避免 run.done 早于 effect 触发而漏接导致一直「思考」
   useEffect(() => {
     const unChunk = gatewayClient.onEvent("agent.run.chunk", (payload: unknown) => {
       const p = payload as { runId?: string; chunk?: string };
       const rid = currentRunIdRef.current;
       if (rid != null && String(p?.runId) === String(rid) && typeof p.chunk === "string") {
         setStreamingText((t) => t + p.chunk);
+      }
+    });
+    const unProgress = gatewayClient.onEvent("agent.run.progress", (payload: unknown) => {
+      const p = payload as { runId?: string; sessionKey?: string };
+      if (p?.sessionKey && sessionKeyRef.current === p.sessionKey) {
+        loadHistory(p.sessionKey, { forceReplace: true });
       }
     });
     const unDone = gatewayClient.onEvent("agent.run.done", (payload: unknown) => {
@@ -651,9 +657,10 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     });
     return () => {
       unChunk();
+      unProgress();
       unDone();
     };
-  }, []);
+  }, [loadHistory]);
 
   const send = async () => {
     let text = input.trim();
@@ -802,6 +809,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
               });
           }, FALLBACK_MS);
         } else {
+          // Gateway 的 agent 方法在 agent 跑完后才 resolve，无 runId；直接拉完整历史，使工具调用与「点击进入」界面一致（含 toolResult）
           const payload = res.payload as { text?: string; toolCalls?: ToolCall[] };
           const replyText = (payload?.text ?? "") || "(无文本回复)";
           setMessages((m) => [
@@ -813,6 +821,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
             },
           ]);
           setLoading(false);
+          loadHistory(effectiveKey, { forceReplace: true });
         }
         if (isNewSession) {
           pendingNewSessionKeyRef.current = null;
@@ -982,10 +991,10 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
               </button>
             ) : (
               <>
+                <button type="submit">发送</button>
                 <button type="button" onClick={handleFileUpload} disabled={uploadLoading} title="上传到当前 Agent 的 ~/.uagent_tmp">
                   {uploadLoading ? "上传中…" : "上传文件"}
                 </button>
-                <button type="submit">发送</button>
               </>
             )}
           </form>
