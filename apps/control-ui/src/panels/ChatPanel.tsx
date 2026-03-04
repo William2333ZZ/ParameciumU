@@ -726,12 +726,13 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
                   .then((r) => {
                     if (sessionKeyRef.current !== sk) return;
                     if (r.ok && r.payload?.messages && r.payload.messages.length > messageCountRef.current + 2) {
-                      const loaded = (r.payload.messages as Array<{ role: string; content?: string; toolCalls?: ToolCall[]; senderAgentId?: string }>)
+                      const raw = r.payload.messages as Array<{ role: string; content?: string; toolCalls?: ToolCall[]; toolCallId?: string; isError?: boolean; senderAgentId?: string }>;
+                      const loaded = raw
                         .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
                         .map((m): ChatMessage => {
                           const t = m.content ?? "";
                           if (m.role === "user") return { role: "user", text: t };
-                          if (m.role === "toolResult") return { role: "toolResult", text: t };
+                          if (m.role === "toolResult") return { role: "toolResult", text: t, ...(m.toolCallId != null && { toolCallId: m.toolCallId }), ...(m.isError !== undefined && { isError: m.isError }) };
                           return { role: "agent", text: t, ...(m.toolCalls?.length && { toolCalls: m.toolCalls }), ...(m.senderAgentId && { senderAgentId: m.senderAgentId }) };
                         });
                       setMessages(loaded);
@@ -754,6 +755,8 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
         } else {
           setErr((res as { error?: { message?: string } }).error?.message ?? "请求失败");
           setLoading(false);
+          // 即使失败（如 504 超时）也拉一次历史，展示已通过 progress 写入的 tool 调用，避免「工具已写入 transcript 但前端没展示」
+          loadHistory(effectiveKey, { forceReplace: true });
         }
         return;
       }
@@ -789,9 +792,10 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
                   .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
                   .map((m): ChatMessage => {
                     const text = m.content ?? "";
+                    const mm = m as { isError?: boolean; toolCalls?: ToolCall[]; toolCallId?: string; senderAgentId?: string };
                     if (m.role === "user") return { role: "user", text };
-                    if (m.role === "toolResult") return { role: "toolResult", text, isError: (m as { isError?: boolean }).isError };
-                    return { role: "agent", text, ...((m as { toolCalls?: ToolCall[] }).toolCalls?.length && { toolCalls: (m as { toolCalls?: ToolCall[] }).toolCalls }), ...(m.senderAgentId && { senderAgentId: m.senderAgentId }) };
+                    if (m.role === "toolResult") return { role: "toolResult", text, ...(mm.toolCallId != null && { toolCallId: mm.toolCallId }), ...(mm.isError !== undefined && { isError: mm.isError }) };
+                    return { role: "agent", text, ...(mm.toolCalls?.length && { toolCalls: mm.toolCalls }), ...(mm.senderAgentId && { senderAgentId: mm.senderAgentId }) };
                   });
                 currentRunIdRef.current = null;
                 setCurrentRunId(null);
@@ -832,10 +836,13 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       } else {
         setErr(res.error?.message ?? "请求失败");
         setLoading(false);
+        // 失败时仍拉历史，展示可能已写入的 tool 调用（如 progress 已推送）
+        loadHistory(effectiveKey, { forceReplace: true });
       }
     } catch (e) {
       setErr((e as Error).message);
       setLoading(false);
+      loadHistory(effectiveKey, { forceReplace: true });
     }
   };
 

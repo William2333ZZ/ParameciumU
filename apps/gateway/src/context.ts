@@ -4,7 +4,7 @@
 
 import path from "node:path";
 import type { CronStore } from "@monou/cron";
-import type { ConnectIdentity } from "@monou/gateway";
+import type { ConnectIdentity, GatewayResponse } from "@monou/gateway";
 
 export type ConnectionEntry = {
 	connId: string;
@@ -71,6 +71,13 @@ export type GatewayContext = {
 	runIdToAbort: Map<string, AbortController>;
 	/** Agent 无心跳超时（毫秒）：>0 时定期检查，超时未收到 agent.heartbeat 则断开该连接；0 表示不按心跳断开 */
 	heartbeatTimeoutMs?: number;
+	/** 等待 agent 或 agent on node 响应的超时毫秒（chat.send / node.invoke 等），默认 120000；超时返回 504 agent on node timeout / agent response timeout */
+	agentResponseTimeoutMs?: number;
+	/** invokeId -> 超时 ref；收到 node.invoke.progress 时重置该 id 的计时器，避免「一直在执行工具」被误判超时 */
+	invokeProgressTimeoutRefs?: Map<
+		string,
+		{ timer: ReturnType<typeof setTimeout>; resolve: (r: GatewayResponse) => void; message: string }
+	>;
 	/** 广播事件（由 index 在创建 wss 后注入） */
 	broadcast?: (event: string, payload: unknown) => void;
 	/** 向指定 connector 推送事件（仅发给 identity.connectorId 匹配的连接） */

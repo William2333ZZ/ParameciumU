@@ -696,12 +696,24 @@ export function createHandlers(ctx: HandlersContext) {
 						appendedTurnCount: 1,
 					});
 					return new Promise<GatewayResponse>((resolve) => {
+						const idStr = String(id);
+						const timeoutMs = ctx.agentResponseTimeoutMs ?? 120_000;
 						const timeout = setTimeout(() => {
+							ctx.invokeProgressTimeoutRefs?.delete(idStr);
 							invokeIdToSession.delete(id);
 							if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
-						}, 120_000);
+						}, timeoutMs);
+						ctx.invokeProgressTimeoutRefs?.set(idStr, {
+							timer: timeout,
+							resolve,
+							message: "agent on node timeout",
+						});
 						ctx.pendingInvokes.set(id, (result: unknown) => {
-							clearTimeout(timeout);
+							const ref = ctx.invokeProgressTimeoutRefs?.get(idStr);
+							if (ref) {
+								clearTimeout(ref.timer);
+								ctx.invokeProgressTimeoutRefs?.delete(idStr);
+							}
 							ctx.pendingInvokes.delete(id);
 							const out =
 								typeof result === "object" && result !== null && "text" in result
@@ -831,7 +843,7 @@ export function createHandlers(ctx: HandlersContext) {
 						return new Promise<GatewayResponse>((resolve) => {
 							const timeout = setTimeout(() => {
 								if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
-							}, 120_000);
+							}, ctx.agentResponseTimeoutMs ?? 120_000);
 							ctx.pendingInvokes.set(id, (result: unknown) => {
 								clearTimeout(timeout);
 								ctx.pendingInvokes.delete(id);
@@ -965,7 +977,7 @@ export function createHandlers(ctx: HandlersContext) {
 					const out = await new Promise<{ text: string }>((resolvePromise) => {
 						const timeout = setTimeout(() => {
 							if (pendingInvokes.delete(id)) resolvePromise({ text: "(timeout)" });
-						}, 120_000);
+						}, ctx.agentResponseTimeoutMs ?? 120_000);
 						pendingInvokes.set(id, (result: unknown) => {
 							clearTimeout(timeout);
 							pendingInvokes.delete(id);
@@ -1026,7 +1038,7 @@ export function createHandlers(ctx: HandlersContext) {
 							const timeout = setTimeout(() => {
 								if (pendingInvokes.delete(id)) resolvePromise({ text: "(timeout)" });
 								else rejectPromise(new Error("timeout"));
-							}, 120_000);
+							}, ctx.agentResponseTimeoutMs ?? 120_000);
 							pendingInvokes.set(id, (result: unknown) => {
 								clearTimeout(timeout);
 								pendingInvokes.delete(id);
@@ -1102,7 +1114,7 @@ export function createHandlers(ctx: HandlersContext) {
 							if (ctx.sessionQueue) clearActiveRunByRunId(ctx.sessionQueue, id);
 							resolvePromise();
 						}
-					}, 120_000);
+					}, ctx.agentResponseTimeoutMs ?? 120_000);
 					pendingInvokes.set(id, (result: unknown) => {
 						clearTimeout(timeout);
 						pendingInvokes.delete(id);
@@ -1177,15 +1189,27 @@ export function createHandlers(ctx: HandlersContext) {
 					);
 				}
 				return new Promise<GatewayResponse>((resolve) => {
+					const idStr = String(id);
+					const timeoutMs = ctx.agentResponseTimeoutMs ?? 120_000;
 					const timeout = setTimeout(() => {
+						ctx.invokeProgressTimeoutRefs?.delete(idStr);
 						invokeIdToSession.delete(id);
 						if (pendingInvokes.delete(id)) {
 							if (ctx.sessionQueue) clearActiveRunByRunId(ctx.sessionQueue, id);
 							resolve(fail(err(504, "agent response timeout")));
 						}
-					}, 120_000);
+					}, timeoutMs);
+					ctx.invokeProgressTimeoutRefs?.set(idStr, {
+						timer: timeout,
+						resolve,
+						message: "agent response timeout",
+					});
 					pendingInvokes.set(id, (result: unknown) => {
-						clearTimeout(timeout);
+						const ref = ctx.invokeProgressTimeoutRefs?.get(idStr);
+						if (ref) {
+							clearTimeout(ref.timer);
+							ctx.invokeProgressTimeoutRefs?.delete(idStr);
+						}
 						pendingInvokes.delete(id);
 						const out =
 							typeof result === "object" && result !== null && "text" in result
@@ -1391,7 +1415,8 @@ export function createHandlers(ctx: HandlersContext) {
 			const id = params?.id;
 			const turnMessages = params?.turnMessages;
 			if (id == null) return fail(err(INVALID_REQUEST, "node.invoke.progress requires params.id"));
-			const info = invokeIdToSession.get(String(id));
+			const idStr = String(id);
+			const info = invokeIdToSession.get(idStr);
 			if (info && Array.isArray(turnMessages) && turnMessages.length > info.appendedTurnCount) {
 				try {
 					const remaining = (turnMessages as TurnMessageWire[]).slice(info.appendedTurnCount);
@@ -1408,6 +1433,20 @@ export function createHandlers(ctx: HandlersContext) {
 					}
 				} catch (_) {
 					// ignore append errors
+				}
+				// 有 progress 表示 agent 仍在执行工具，重置超时计时器，避免「一直在执行工具」被误判超时
+				const refs = ctx.invokeProgressTimeoutRefs;
+				if (refs) {
+					const ref = refs.get(idStr);
+					if (ref) {
+						clearTimeout(ref.timer);
+						const timeoutMs = ctx.agentResponseTimeoutMs ?? 120_000;
+						ref.timer = setTimeout(() => {
+							refs.delete(idStr);
+							invokeIdToSession.delete(idStr);
+							if (pendingInvokes.delete(idStr)) ref.resolve(fail(err(504, ref.message)));
+						}, timeoutMs);
+					}
 				}
 				// 无论 append 是否成功都广播，前端可拉 history 拿到当前 transcript 状态
 				if (ctx.broadcast) {
@@ -1621,7 +1660,7 @@ export function createHandlers(ctx: HandlersContext) {
 								if (ctx.sessionQueue) clearActiveRunByRunId(ctx.sessionQueue, invId);
 								resolvePromise();
 							}
-						}, 120_000);
+						}, ctx.agentResponseTimeoutMs ?? 120_000);
 						pendingInvokes.set(invId, (result: unknown) => {
 							clearTimeout(timeout);
 							pendingInvokes.delete(invId);
@@ -1645,7 +1684,7 @@ export function createHandlers(ctx: HandlersContext) {
 							if (ctx.sessionQueue) clearActiveRunByRunId(ctx.sessionQueue, id);
 							resolve(fail(err(504, "connector inbound agent timeout")));
 						}
-					}, 120_000);
+					}, ctx.agentResponseTimeoutMs ?? 120_000);
 					pendingInvokes.set(id, (result: unknown) => {
 						clearTimeout(timeout);
 						pendingInvokes.delete(id);

@@ -8,6 +8,7 @@
  *   GATEWAY_DATA_DIR= 或 GATEWAY_STATE_DIR= 覆盖数据目录（默认 ./.gateway）
  *   CRON_STORE=
  *   GATEWAY_AGENT_HEARTBEAT_TIMEOUT_MS= 超时未收到 agent.heartbeat 则断开该连接（0 表示不断开）
+ *   GATEWAY_AGENT_RESPONSE_TIMEOUT_MS= 等待 agent/node 响应的超时毫秒（默认 120000）；超时返回 504 "agent on node timeout" 或 "agent response timeout"
  *   GATEWAY_TOKEN= 或 GATEWAY_PASSWORD= 启用认证（connect 时必带 token 或 password）
  *   GATEWAY_TLS_CERT= 与 GATEWAY_TLS_KEY= 启用 wss
  *
@@ -70,6 +71,9 @@ ctx.persistConnectorMappings = async () => {
 ctx.sessionQueue = createSessionQueueState();
 const heartbeatTimeoutMs = Number(process.env.GATEWAY_AGENT_HEARTBEAT_TIMEOUT_MS) || 0;
 if (heartbeatTimeoutMs > 0) ctx.heartbeatTimeoutMs = heartbeatTimeoutMs;
+const agentResponseTimeoutMs = Number(process.env.GATEWAY_AGENT_RESPONSE_TIMEOUT_MS) || 120_000;
+ctx.agentResponseTimeoutMs = agentResponseTimeoutMs;
+ctx.invokeProgressTimeoutRefs = new Map();
 
 const hooks = discoverHooks({
 	workspaceHooksDir: path.join(ROOT_DIR, ".u", "hooks"),

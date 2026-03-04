@@ -38,6 +38,10 @@ GATEWAY_PORT=9348 npm run gateway
 | SESSION_RESET_MODE | daily \| idle \| none | none |
 | SESSION_RESET_AT_HOUR | Hour for daily reset (0–23) | 4 |
 | SESSION_IDLE_MINUTES | Idle minutes before expiry (idle mode) | — |
+| GATEWAY_AGENT_RESPONSE_TIMEOUT_MS | 等待 agent 或「agent on node」响应的超时毫秒（chat.send 等）；超时返回 504 | 120000 |
+| GATEWAY_AGENT_HEARTBEAT_TIMEOUT_MS | 超时未收到 agent.heartbeat 则断开连接（0=不按心跳断开） | 0 |
+
+**504 "agent on node timeout" / "agent response timeout"**：当消息派发到「跑在某个 Node 上的 agent」或本机 agent 时，Gateway 在 **GATEWAY_AGENT_RESPONSE_TIMEOUT_MS** 内未收到该 agent 的回传结果即返回 504。**有 progress 会重置计时器**：只要 agent 在跑并持续发送 `node.invoke.progress`（如每轮 tool 调用后），超时计时器会重置，避免「一直在执行工具」被误判超时；只有「连续 N 秒无任何 progress」才会 504。常见原因：该 agent 进程未连接或已断开、长时间无 progress（卡死）、网络延迟。可调大 `GATEWAY_AGENT_RESPONSE_TIMEOUT_MS` 或检查 Node/agent 连接与日志。
 
 **Data dir ./.gateway:** `mappings.json`, `sessions/sessions.json`, `sessions/transcripts/*.json`.
 
@@ -92,6 +96,8 @@ Open http://localhost:5173, enter Gateway URL (e.g. ws://127.0.0.1:9347) and opt
 **Build:** `npm run control-ui:build` → `apps/control-ui/dist`.
 
 **Stack:** TypeScript, React, Vite; WebSocket to Gateway (@monou/gateway protocol).
+
+**Chat 与工具展示：** 单会话发消息时前端用 **agent** RPC（带 runId，可收 agent.run.chunk / agent.run.done）；群聊用 **chat.send**（等单次响应）。工具调用（tool_calls / tool_result）会写入 transcript；Gateway 在收到 agent 或 node 的 progress 时会广播 agent.run.progress，前端据此拉 chat.history 展示中途的 tool 卡片。若请求超时（504），前端仍会拉一次 history，以便展示已通过 progress 写入的 tool 调用，避免「工具已写入但界面无展示」的错觉。agent 与 chat.send 都会经 Gateway 派发到本机或远端（agent on node），超时由 GATEWAY_AGENT_RESPONSE_TIMEOUT_MS 控制。
 
 ---
 
