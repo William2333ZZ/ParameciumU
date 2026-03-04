@@ -8,9 +8,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** 默认智能体目录名：第一只草履虫（ParameciumU 隐喻） */
+/** 默认智能体目录名：第一只草履虫（ParameciumU 隐喻）。getAgentDir() 未指定 agentDir 时使用。 */
 export const DEFAULT_AGENT_DIR = ".first_paramecium";
 
+/** 默认 agent 注册 ID（如 Gateway 的 agentId），仅用于应用层；身份由各 agent 目录的 IDENTITY.md 定义，不注入为固定角色名。 */
 export const U_BASE_AGENT_ID = "U_base";
 
 /** 必备技能目录名（与 template/skills 一致） */

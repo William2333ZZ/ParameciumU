@@ -7,7 +7,7 @@ read_when:
 
 # ParameciumU
 
-**ParameciumU** — A sovereign agent platform where “you are a paramecium”: absorb, evolve, reproduce. Definition is a **folder** (SOUL, IDENTITY, skills, memory, knowledge, cron); the same definition can run on your machine or on an AI OS device. Default agent dir: **.first_paramecium** (the first paramecium).
+**ParameciumU** — A sovereign agent platform where “you are a paramecium”: absorb, evolve, reproduce. Definition is a **folder** (SOUL, IDENTITY, skills, memory, knowledge, cron, llm.json); the same definition can run on your machine or on an AI OS device. **无默认目录**：agent 由传入的目录加载（`AGENT_ID=... AGENT_DIR=... npm run agent`），该目录下的 llm.json 控制模型；常用示例为 `.first_paramecium`。
 
 ## Doc structure
 

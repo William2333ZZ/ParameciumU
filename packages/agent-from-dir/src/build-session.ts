@@ -1,5 +1,6 @@
 /**
- * 从 .first_paramecium 目录构建 AgentSession 与 createAgentContextFromU。
+ * 从传入的 agent 目录构建 AgentSession 与 createAgentContextFromU。
+ * 无默认目录：调用方通过 AGENT_DIR 传入 agent 目录；该目录下的 llm.json 控制模型，SOUL.md/IDENTITY.md 定义身份。
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -12,55 +13,7 @@ import { ensureAgentDir, getAgentSkillDirs, U_BASE_SKILL_NAMES } from "@monou/ag
 import { complete, createStreamFn, registerBuiltins } from "@monou/llm-provider";
 import { createSkillScriptExecutor, loadSkillScriptTools } from "./load-skill-script-tools.js";
 
-const MEMORY_TOOL_NAMES = new Set([
-	"memory_search",
-	"memory_get",
-	"memory_store",
-	"memory_recall",
-	"memory_forget",
-	"memory_sync",
-]);
-const KNOWLEDGE_TOOL_NAMES = new Set([
-	"knowledge_search",
-	"knowledge_get",
-	"knowledge_sync",
-	"knowledge_add",
-	"knowledge_learn",
-	"knowledge_list_topics",
-	"knowledge_list_points",
-	"knowledge_learn_from_urls",
-	"knowledge_skill_create",
-]);
-const CRON_TOOL_NAMES = new Set([
-	"cron_status",
-	"cron_list",
-	"cron_add",
-	"cron_update",
-	"cron_remove",
-	"cron_run",
-	"cron_start_scheduler",
-]);
-const WEB_TOOL_NAMES = new Set(["web_fetch", "web_search"]);
-const BROWSER_TOOL_NAMES = new Set([
-	"browser_nodes",
-	"browser_capabilities",
-	"browser_fetch",
-	"browser_links",
-	"browser_click",
-	"browser_fill",
-]);
-const MESSAGE_TOOL_NAMES = new Set(["send_message"]);
-const SESSIONS_TOOL_NAMES = new Set(["sessions_list", "sessions_preview", "sessions_send"]);
-const GATEWAY_TOOL_NAMES = new Set([
-	"gateway_agents_list",
-	"gateway_nodes_list",
-	"gateway_browser_nodes",
-	"gateway_cron_list",
-	"gateway_skills_status",
-	"gateway_agent_send_to_session",
-]);
-const CODE_TOOL_NAMES = new Set(["grep", "glob", "list", "code_search", "apply_patch"]);
-const TODO_TOOL_NAMES = new Set(["todowrite", "todoread"]);
+const LOG_PREFIX = "[agent-from-dir]";
 
 export interface AgentSession {
 	agentDir: string;
@@ -71,13 +24,24 @@ export interface AgentSession {
 
 export type GatewayInvoke = (method: string, params: Record<string, unknown>) => Promise<unknown>;
 
+type SkillExecuteTool = (
+	name: string,
+	args: Record<string, unknown>,
+	gatewayInvoke?: GatewayInvoke,
+) => Promise<{ content: string; isError?: boolean }>;
+
 export interface BuildSessionFromUOptions {
+	/** Agent 目录路径（运行时由 AGENT_DIR 传入；无默认值，调用方必须指定）。该目录下的 llm.json 在 createAgentContextFromU 中用于模型配置。 */
 	agentDir?: string;
 	gatewayInvoke?: GatewayInvoke;
 	/** When true, use agentDir as-is without ensureAgentDir (for tests with minimal fixture). */
 	skipEnsureAgentDir?: boolean;
 }
 
+/**
+ * 从传入的 agent 目录构建 Session（skills、tools、executeTool）。
+ * 调用方应传入 opts.agentDir（如 process.env.AGENT_DIR）；无默认目录。模型由该目录的 llm.json 在 createAgentContextFromU 时加载。
+ */
 export async function buildSessionFromU(
 	rootDir: string = process.cwd(),
 	opts?: BuildSessionFromUOptions,
@@ -88,6 +52,7 @@ export async function buildSessionFromU(
 			: opts?.agentDir != null
 				? ensureAgentDir({ agentDir: opts.agentDir })
 				: ensureAgentDir({ rootDir });
+	console.info(`${LOG_PREFIX} buildSessionFromU agentDir=${agentDir}`);
 	const baseSkillDirs = getAgentSkillDirs(agentDir, { asAgentDir: true });
 	const skillsRoot = path.join(agentDir, "skills");
 	const discovered = existsSync(skillsRoot)
@@ -100,131 +65,61 @@ export async function buildSessionFromU(
 	);
 	const skillDirs = [...baseSkillDirs, ...otherDirs];
 
-	const scriptsDir = (skillName: string) => path.join(agentDir, "skills", skillName, "scripts");
-	const toolsPath = (skillName: string) => {
-		const dir = scriptsDir(skillName);
+	function toolsPathFromSkillDir(skillDir: string): string | null {
+		const dir = path.join(skillDir, "scripts");
 		const js = path.join(dir, "tools.js");
 		const ts = path.join(dir, "tools.ts");
 		if (existsSync(js)) return js;
 		if (existsSync(ts)) return ts;
 		return null;
-	};
-	const noopSkill = (): {
-		tools: AgentTool[];
-		executeTool: (name: string, args: Record<string, unknown>) => Promise<{ content: string; isError?: boolean }>;
-	} => ({
+	}
+	const noopSkill = (): { tools: AgentTool[]; executeTool: SkillExecuteTool } => ({
 		tools: [],
 		executeTool: async () => ({ content: "skill not loaded", isError: true }),
 	});
-	const loadSkillModule = async (scriptPath: string | null) => {
+	const loadSkillModule = async (scriptPath: string | null): Promise<{ tools: AgentTool[]; executeTool: SkillExecuteTool }> => {
 		if (!scriptPath) return noopSkill();
 		try {
 			const mod = await import(pathToFileURL(scriptPath).href);
 			return {
 				tools: (mod.tools ?? []) as AgentTool[],
-				executeTool: (mod.executeTool ?? noopSkill().executeTool) as (
-					name: string,
-					args: Record<string, unknown>,
-				) => Promise<{ content: string; isError?: boolean }>,
+				executeTool: (mod.executeTool ?? noopSkill().executeTool) as SkillExecuteTool,
 			};
-		} catch {
+		} catch (err) {
+			console.warn(`${LOG_PREFIX} loadSkillModule 失败 path=${scriptPath}`, err);
 			return noopSkill();
 		}
 	};
 
-	const baseSkillModule = await loadSkillModule(toolsPath("base_skill"));
-	const memoryModule = await loadSkillModule(toolsPath("memory"));
-	const cronModule = await loadSkillModule(toolsPath("cron"));
-	const knowledgePath = toolsPath("knowledge");
+	/** 按 skillDirs 顺序动态加载所有带 scripts/tools.js 或 tools.ts 的 skill */
+	const loadedSkills: { skillName: string; skillDir: string; tools: AgentTool[]; executeTool: SkillExecuteTool }[] = [];
+	for (const skillDir of skillDirs) {
+		const skillName = path.basename(skillDir);
+		const scriptPath = toolsPathFromSkillDir(skillDir);
+		if (!scriptPath) continue;
+		const mod = await loadSkillModule(scriptPath);
+		loadedSkills.push({ skillName, skillDir, tools: mod.tools, executeTool: mod.executeTool });
+	}
+	console.info(`${LOG_PREFIX} 动态加载 skills: ${loadedSkills.map((s) => s.skillName).join(", ") || "(无)"}`);
 
-	const knowledgeModule = knowledgePath ? await loadSkillModule(knowledgePath) : noopSkill();
-	const knowledgeTools = knowledgeModule.tools;
-	const knowledgeExecuteTool = knowledgeModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const webSkillModule = await loadSkillModule(toolsPath("web_skill"));
-	const webSkillTools = webSkillModule.tools;
-	const webSkillExecuteTool = webSkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const browserSkillModule = await loadSkillModule(toolsPath("browser_skill"));
-	const browserSkillTools = browserSkillModule.tools;
-	const browserSkillExecuteTool = browserSkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-		gatewayInvoke?: GatewayInvoke,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const messageSkillModule = await loadSkillModule(toolsPath("message_skill"));
-	const messageSkillTools = messageSkillModule.tools;
-	const messageSkillExecuteTool = messageSkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-		gatewayInvoke?: GatewayInvoke,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const sessionsSkillModule = await loadSkillModule(toolsPath("sessions_skill"));
-	const sessionsSkillTools = sessionsSkillModule.tools;
-	const sessionsSkillExecuteTool = sessionsSkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-		gatewayInvoke?: GatewayInvoke,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const gatewaySkillModule = await loadSkillModule(toolsPath("gateway_skill"));
-	const gatewaySkillTools = gatewaySkillModule.tools;
-	const gatewaySkillExecuteTool = gatewaySkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-		gatewayInvoke?: GatewayInvoke,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const codeSkillModule = await loadSkillModule(toolsPath("code_skill"));
-	const codeSkillTools = codeSkillModule.tools;
-	const codeSkillExecuteTool = codeSkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const todoSkillModule = await loadSkillModule(toolsPath("todo_skill"));
-	const todoSkillTools = todoSkillModule.tools;
-	const todoSkillExecuteTool = todoSkillModule.executeTool as (
-		name: string,
-		args: Record<string, unknown>,
-	) => Promise<{ content: string; isError?: boolean }>;
-
-	const baseSkillTools = baseSkillModule.tools;
-	const baseSkillExecuteTool = baseSkillModule.executeTool;
-	const memoryTools = memoryModule.tools;
-	const memoryExecuteTool = memoryModule.executeTool;
-	const cronTools = cronModule.tools;
-	const cronExecuteTool = cronModule.executeTool;
+	const toolToHandler = new Map<string, { executeTool: SkillExecuteTool; skillName: string }>();
+	for (const skill of loadedSkills) {
+		for (const t of skill.tools) {
+			toolToHandler.set(t.name, { executeTool: skill.executeTool, skillName: skill.skillName });
+		}
+	}
+	const baseSkill = loadedSkills.find((s) => s.skillName === "base_skill");
+	const baseSkillExecuteTool = baseSkill?.executeTool ?? noopSkill().executeTool;
+	const knowledgeSkill = loadedSkills.find((s) => s.skillName === "knowledge");
 
 	const { tools: scriptTools, entries: scriptEntries } = loadSkillScriptTools(skillDirs, {
-		excludeDirNames: [
-			"base_skill",
-			"code_skill",
-			"todo_skill",
-			"skill-creator",
-			"memory",
-			"knowledge",
-			"cron",
-			"web_skill",
-			"browser_skill",
-			"message_skill",
-			"sessions_skill",
-			"gateway_skill",
-		],
+		excludeDirNames: loadedSkills.map((s) => s.skillName),
 	});
 	const executeSkillScript = createSkillScriptExecutor(scriptEntries);
 
 	const knowledgeTopicTools: AgentTool[] = [];
 	const knowledgeTopicByToolName = new Map<string, string>();
-	if (existsSync(skillsRoot)) {
+	if (existsSync(skillsRoot) && knowledgeSkill) {
 		const dirs = readdirSync(skillsRoot, { withFileTypes: true });
 		for (const d of dirs) {
 			if (!d.isDirectory() || !d.name.endsWith("_knowledge")) continue;
@@ -255,24 +150,25 @@ export async function buildSessionFromU(
 				},
 			});
 			knowledgeTopicByToolName.set(toolName, topic);
+			toolToHandler.set(toolName, {
+				skillName: "knowledge",
+				executeTool: async (_name, args) =>
+					knowledgeSkill.executeTool("knowledge_search", {
+						query: args?.query,
+						topic,
+						maxResults: args?.maxResults,
+					}),
+			});
 		}
 	}
 
-	const mergedTools = [
-		...baseSkillTools,
-		...codeSkillTools,
-		...todoSkillTools,
-		...memoryTools,
-		...knowledgeTools,
-		...knowledgeTopicTools,
-		...cronTools,
-		...webSkillTools,
-		...browserSkillTools,
-		...messageSkillTools,
-		...sessionsSkillTools,
-		...gatewaySkillTools,
-		...scriptTools,
-	];
+	const mergedTools: AgentTool[] = [];
+	for (const skillDir of skillDirs) {
+		const loaded = loadedSkills.find((s) => s.skillDir === skillDir);
+		if (loaded) mergedTools.push(...loaded.tools);
+	}
+	mergedTools.push(...scriptTools, ...knowledgeTopicTools);
+
 	const scriptToolNames = new Set(scriptEntries.map((e) => e.name));
 	const gatewayInvoke = opts?.gatewayInvoke;
 
@@ -280,27 +176,12 @@ export async function buildSessionFromU(
 		name: string,
 		args: Record<string, unknown>,
 	): Promise<{ content: string; isError?: boolean }> {
-		if (MEMORY_TOOL_NAMES.has(name)) return memoryExecuteTool(name, args);
-		if (KNOWLEDGE_TOOL_NAMES.has(name)) return knowledgeExecuteTool(name, args);
-		const topicForKnowledge = knowledgeTopicByToolName.get(name);
-		if (topicForKnowledge != null) {
-			return knowledgeExecuteTool("knowledge_search", {
-				query: args?.query,
-				topic: topicForKnowledge,
-				maxResults: args?.maxResults,
-			});
-		}
-		if (CRON_TOOL_NAMES.has(name)) return cronExecuteTool(name, args);
-		if (WEB_TOOL_NAMES.has(name)) return webSkillExecuteTool(name, args);
-		if (BROWSER_TOOL_NAMES.has(name)) return browserSkillExecuteTool(name, args, gatewayInvoke);
-		if (MESSAGE_TOOL_NAMES.has(name)) return messageSkillExecuteTool(name, args, gatewayInvoke);
-		if (SESSIONS_TOOL_NAMES.has(name)) return sessionsSkillExecuteTool(name, args, gatewayInvoke);
-		if (GATEWAY_TOOL_NAMES.has(name)) return gatewaySkillExecuteTool(name, args, gatewayInvoke);
-		if (CODE_TOOL_NAMES.has(name)) return codeSkillExecuteTool(name, args);
-		if (TODO_TOOL_NAMES.has(name)) return todoSkillExecuteTool(name, args);
+		const handler = toolToHandler.get(name);
+		if (handler) return handler.executeTool(name, args, gatewayInvoke);
 		if (scriptToolNames.has(name)) return executeSkillScript(name, args);
-		return baseSkillExecuteTool(name, args);
+		return baseSkillExecuteTool(name, args, gatewayInvoke);
 	}
+	console.info(`${LOG_PREFIX} buildSessionFromU 完成 agentDir=${agentDir} skillDirs=${skillDirs.length} tools=${mergedTools.length}`);
 	return { agentDir, skillDirs, mergedTools, executeTool };
 }
 
@@ -380,31 +261,58 @@ export interface LlmConfig {
 }
 
 const LLM_CONFIG_FILENAME = "llm.json";
-const DEFAULT_MODEL_ID = "gpt-4o-mini";
 
 /**
  * 从 agent 目录的 llm.json 加载 LLM 配置（OpenAI 兼容）。
- * 文件可选字段：apiKey、baseURL、model。未配置的项用环境变量 OPENAI_API_KEY、OPENAI_BASE_URL、OPENAI_MODEL（或 OPENAI_DEFAULT_MODEL）补全。
- * 若未传 agentDir 或文件不存在，则仅从环境变量读取。
+ * 无兜底：apiKey、model 须在 llm.json 或环境变量 OPENAI_API_KEY、OPENAI_MODEL（或 OPENAI_DEFAULT_MODEL）中配置，缺则记为空并打日志说明。
  */
 export function loadLlmConfig(agentDir?: string): LlmConfig {
 	const fromEnv = {
-		apiKey: process.env.OPENAI_API_KEY ?? "",
-		baseURL: process.env.OPENAI_BASE_URL || undefined,
-		modelId: process.env.OPENAI_MODEL || process.env.OPENAI_DEFAULT_MODEL || DEFAULT_MODEL_ID,
+		apiKey: (process.env.OPENAI_API_KEY ?? "").trim(),
+		baseURL: process.env.OPENAI_BASE_URL?.trim() || undefined,
+		modelId: (process.env.OPENAI_MODEL || process.env.OPENAI_DEFAULT_MODEL || "").trim(),
 	};
-	if (!agentDir) return fromEnv;
+	if (!agentDir) {
+		if (!fromEnv.apiKey || !fromEnv.modelId) {
+			console.warn(
+				`${LOG_PREFIX} loadLlmConfig 未传 agentDir，且环境变量不完整: apiKey=${fromEnv.apiKey ? "已设" : "未设"} modelId=${fromEnv.modelId ? "已设" : "未设"}。请在 agent 目录配置 llm.json 或设置 OPENAI_API_KEY、OPENAI_MODEL。`,
+			);
+		}
+		return fromEnv;
+	}
 	const configPath = path.join(agentDir, LLM_CONFIG_FILENAME);
-	if (!existsSync(configPath)) return fromEnv;
+	if (!existsSync(configPath)) {
+		console.warn(
+			`${LOG_PREFIX} loadLlmConfig llm.json 未找到 agentDir=${agentDir}，使用环境变量。若未设 OPENAI_API_KEY/OPENAI_MODEL 则运行将失败。`,
+		);
+		if (!fromEnv.apiKey || !fromEnv.modelId) {
+			console.warn(
+				`${LOG_PREFIX} 配置不完整: apiKey=${fromEnv.apiKey ? "已设" : "未设"} modelId=${fromEnv.modelId ? "已设" : "未设"}。请在 ${agentDir}/llm.json 或环境变量中配置。`,
+			);
+		}
+		return fromEnv;
+	}
 	try {
 		const raw = readFileSync(configPath, "utf-8");
 		const data = JSON.parse(raw) as Record<string, unknown>;
-		return {
-			apiKey: (data.apiKey as string)?.trim() || fromEnv.apiKey,
-			baseURL: (data.baseURL as string)?.trim() || fromEnv.baseURL,
-			modelId: (data.model as string)?.trim() || (data.modelId as string)?.trim() || fromEnv.modelId,
-		};
-	} catch {
+		const apiKey = (data.apiKey as string)?.trim() || fromEnv.apiKey;
+		const baseURL = (data.baseURL as string)?.trim() || fromEnv.baseURL;
+		const modelId = (data.model as string)?.trim() || (data.modelId as string)?.trim() || fromEnv.modelId;
+		if (!apiKey || !modelId) {
+			console.warn(
+				`${LOG_PREFIX} loadLlmConfig ${configPath} 或环境变量不完整: apiKey=${apiKey ? "已设" : "未设"} modelId=${modelId ? "已设" : "未设"}。请在 llm.json 中配置 apiKey、model（或 modelId），或设置 OPENAI_* 环境变量。`,
+			);
+		} else {
+			console.info(`${LOG_PREFIX} loadLlmConfig agentDir=${agentDir} modelId=${modelId} (from llm.json)`);
+		}
+		return { apiKey, baseURL: baseURL || undefined, modelId };
+	} catch (err) {
+		console.warn(`${LOG_PREFIX} loadLlmConfig 读取/解析失败 path=${configPath}`, err);
+		if (!fromEnv.apiKey || !fromEnv.modelId) {
+			console.warn(
+				`${LOG_PREFIX} 回退到环境变量仍不完整: apiKey=${fromEnv.apiKey ? "已设" : "未设"} modelId=${fromEnv.modelId ? "已设" : "未设"}。`,
+			);
+		}
 		return fromEnv;
 	}
 }
@@ -419,6 +327,11 @@ export function createAgentContextFromU(
 } {
 	registerBuiltins();
 	const { apiKey, baseURL, modelId } = loadLlmConfig(session.agentDir);
+	if (!apiKey?.trim() || !modelId?.trim()) {
+		const msg = `LLM 配置不完整: 请在 agent 目录「${session.agentDir}」下配置 llm.json（apiKey、model）或设置环境变量 OPENAI_API_KEY、OPENAI_MODEL。当前 apiKey=${apiKey ? "已设" : "未设"} modelId=${modelId ? "已设" : "未设"}`;
+		console.error(`${LOG_PREFIX} ${msg}`);
+		throw new Error(msg);
+	}
 	const llmStreamFn = createStreamFn(
 		{ api: "openai" as const, id: modelId, provider: "openai" },
 		{ apiKey, baseURL: baseURL || undefined },
@@ -432,18 +345,13 @@ export function createAgentContextFromU(
 	};
 	const dateTimeContext = getCurrentDateTimeContext();
 	const soulAndIdentity = readSoulAndIdentity(session.agentDir);
+	const agentDirLabel = path.basename(session.agentDir) || "agent";
 	const {
 		state,
 		config,
 		streamFn: sf,
 	} = createAgent({
-		systemPrompt: `${soulAndIdentity}你是 U_base 编码助手，从 .first_paramecium 加载 skills。请遵循 base_skill、skill-creator、memory、knowledge、cron 等工具与准则。
-
-**Memory Recall**：在回答与 prior work、decisions、dates、people、preferences、todos 相关的问题前，先执行 memory_search（或 memory_recall），再用 memory_get 按需拉取片段；若搜索后仍无把握，可说明已查过记忆。
-
-**Knowledge**：在回答根据文档/知识库/FAQ/如何配置类问题前，先执行 knowledge_search，再用 knowledge_get 按需拉取片段。
-
-${dateTimeContext}`,
+		systemPrompt: `${soulAndIdentity}你由 agent 目录「${agentDirLabel}」加载。\n\n${dateTimeContext}`,
 		skillDirs: session.skillDirs,
 		tools: session.mergedTools,
 		streamFn,
@@ -451,9 +359,6 @@ ${dateTimeContext}`,
 	});
 	return { state, config, streamFn: sf };
 }
-
-/** Default model used for main agent and for compaction summary (same model recommended). */
-const DEFAULT_LLM_MODEL = { api: "openai" as const, id: "gpt-4o-mini", provider: "openai" };
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
@@ -483,7 +388,12 @@ export async function maybeCompactState(state: AgentState, opts?: MaybeCompactOp
 	const apiKey = opts?.apiKey ?? cfg.apiKey;
 	const baseURL = opts?.baseURL ?? cfg.baseURL;
 	const contextWindow = opts?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
-	if (!apiKey) return state;
+	if (!apiKey?.trim() || !cfg.modelId?.trim()) {
+		console.warn(
+			`${LOG_PREFIX} maybeCompactState 跳过: LLM 未配置（需传入 agentDir 或 opts 中的 llm 配置）。apiKey=${apiKey ? "已设" : "未设"} modelId=${cfg.modelId ? "已设" : "未设"}`,
+		);
+		return state;
+	}
 
 	const model = { api: "openai" as const, id: cfg.modelId, provider: "openai" as const };
 	const completeFn = async (ctx: { systemPrompt: string; userText: string; signal?: AbortSignal }) => {

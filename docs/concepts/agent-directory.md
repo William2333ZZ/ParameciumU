@@ -81,15 +81,15 @@ Tools: knowledge_search, knowledge_get, knowledge_add, knowledge_learn, knowledg
 
 ## Template and paths (@monou/agent-template)
 
-- **getAgentDir(rootDir)** — Default `path.join(rootDir, ".first_paramecium")`.
-- **ensureAgentDir(options)** — If dir missing, copy from template; optional rootDir, agentDir, forceSync.
-- **getAgentSkillDirs(rootOrAgentDir, opts)** — Returns list of skill dir paths.
+- **getAgentDir(rootDir)** — 返回 `path.join(rootDir, ".first_paramecium")`，仅用于未显式传 agentDir 时的辅助；**运行时无默认目录**，启动 agent 必须设 **AGENT_DIR**。
+- **ensureAgentDir(options)** — 若目录不存在则从模板复制；可选 rootDir、agentDir、forceSync。
+- **getAgentSkillDirs(rootOrAgentDir, opts)** — 返回该 agent 目录下技能路径列表。
 
-Default agent dir is usually `.first_paramecium` in the repo; for multiple agents use `agents/&lt;id&gt;/` or any same-structure dir and set **AGENT_DIR**. Create new agents with the **agent-creator** skill (create-and-connect.sh or step-by-step).
+启动方式：`GATEWAY_URL=... AGENT_ID=... AGENT_DIR=... npm run agent`，无默认值；常用示例为 `AGENT_ID=.first_paramecium AGENT_DIR=./.first_paramecium`。多 agent 时每个进程设不同 AGENT_ID/AGENT_DIR，每目录可有自己的 **llm.json**。新建 agent 用 **agent-creator** 技能（create-and-connect.sh 或分步）。
 
 ## Runtime relationship
 
-- **Loading** — apps/agent, TUI, Gateway (read-only e.g. skills.status) use @monou/agent-from-dir: `buildSessionFromU`, `createAgentContextFromU`.
+- **Loading** — apps/agent、TUI、Gateway 通过 @monou/agent-from-dir 的 `buildSessionFromU`（需传入 agent 目录）、`createAgentContextFromU` 加载；该目录的 **llm.json** 控制模型，SOUL.md/IDENTITY.md 定义身份并注入 system prompt。
 - **Evolution** — Edit SOUL/IDENTITY or skills in place; next load picks up changes. No release needed.
 - **Portability** — Any folder that follows this convention is a ParameciumU-compatible agent; version it (git), copy, move.
 
