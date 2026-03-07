@@ -119,9 +119,26 @@ export function createStreamFn(
 				yield { type: "text", text: event.delta } as StreamChunkLike;
 			}
 			if (event.type === "tool_call") {
+				// Normalize arguments: ensure it is valid JSON or undefined.
+				// Some models (e.g. MiniMax) may return empty string or non-JSON.
+				let normalizedArgs = event.arguments;
+				if (normalizedArgs !== undefined) {
+					const trimmed = normalizedArgs.trim();
+					if (!trimmed || trimmed === "{}") {
+						normalizedArgs = undefined;
+					} else {
+						// Validate JSON; if invalid keep as-is so caller can handle
+						try {
+							JSON.parse(trimmed);
+							normalizedArgs = trimmed;
+						} catch {
+							// keep original for caller to handle
+						}
+					}
+				}
 				yield {
 					type: "tool_call",
-					call: { id: event.id, name: event.name, arguments: event.arguments },
+					call: { id: event.id, name: event.name, arguments: normalizedArgs },
 				} as StreamChunkLike;
 			}
 			if (event.type === "done") {

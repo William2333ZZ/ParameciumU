@@ -191,10 +191,28 @@ export async function runAgentTurnWithToolsStreaming(
 			const call = result.toolCalls[i];
 			let args: Record<string, unknown> = {};
 			if (call.arguments) {
-				try {
-					args = JSON.parse(call.arguments) as Record<string, unknown>;
-				} catch {
-					args = { raw: call.arguments };
+				const trimmed = call.arguments.trim();
+				if (trimmed && trimmed !== "{}") {
+					try {
+						const parsed = JSON.parse(trimmed);
+						// Some models may return a JSON array or primitive; wrap in object if needed
+						if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+							args = parsed as Record<string, unknown>;
+						} else {
+							args = { value: parsed };
+						}
+					} catch {
+						// Last resort: try to extract JSON object from string
+						const match = trimmed.match(/\{[\s\S]*\}/);
+						if (match) {
+							try {
+								args = JSON.parse(match[0]) as Record<string, unknown>;
+							} catch {
+								// Keep empty args rather than passing malformed string
+								args = {};
+							}
+						}
+					}
 				}
 			}
 			const out = await executeTool(call.name, args);
