@@ -1,6 +1,23 @@
 import OpenAI from "openai";
 import type { Context, LLMProvider, Model, StreamEvent, StreamOptions, Tool } from "../types.js";
 
+/** 确保 arguments 是有效的 JSON 字符串 */
+function safeArguments(args: string | undefined): string {
+	if (!args || !args.trim()) return "{}";
+	try {
+		JSON.parse(args);
+		return args;
+	} catch {
+		// 如果不是有效 JSON，尝试解析并重新序列化
+		try {
+			const parsed = eval(`(${args})`);
+			return JSON.stringify(parsed);
+		} catch {
+			return "{}";
+		}
+	}
+}
+
 function toOpenAIMessages(context: Context): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
 	const out: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
 	if (context.systemPrompt) {
@@ -20,7 +37,7 @@ function toOpenAIMessages(context: Context): OpenAI.Chat.Completions.ChatComplet
 				msg.tool_calls = m.toolCalls.map((tc) => ({
 					id: tc.id,
 					type: "function" as const,
-					function: { name: tc.name, arguments: tc.arguments ?? "" },
+					function: { name: tc.name || "unknown", arguments: safeArguments(tc.arguments) },
 				}));
 			}
 			out.push(msg);
@@ -102,7 +119,7 @@ export function createOpenAIProvider(): LLMProvider {
 				}
 				const sorted = Array.from(toolCalls.entries()).sort((a, b) => a[0] - b[0]);
 				for (const [, tc] of sorted) {
-					yield { type: "tool_call", id: tc.id, name: tc.name, arguments: tc.args || undefined };
+					yield { type: "tool_call", id: tc.id, name: tc.name, arguments: safeArguments(tc.args) };
 				}
 				yield {
 					type: "done",
