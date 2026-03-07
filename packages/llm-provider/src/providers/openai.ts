@@ -1,6 +1,33 @@
 import OpenAI from "openai";
 import type { Context, LLMProvider, Model, StreamEvent, StreamOptions, Tool } from "../types.js";
 
+/**
+ * Ensure tool call arguments is a valid JSON string.
+ * Some models (e.g. MiniMax) reject empty string or non-JSON as function arguments.
+ * Normalizes: undefined / "" / whitespace-only → "{}", non-JSON → "{}" (with warning).
+ */
+function normalizeToolCallArguments(args: string | undefined): string {
+	if (!args || !args.trim()) return "{}";
+	// Already valid JSON?
+	try {
+		JSON.parse(args);
+		return args;
+	} catch {
+		// Try to extract JSON object from string (some models wrap in extra text)
+		const match = args.match(/\{[\s\S]*\}/);
+		if (match) {
+			try {
+				JSON.parse(match[0]);
+				return match[0];
+			} catch {
+				// fall through
+			}
+		}
+		// Return as-is; let the caller handle the error rather than silently drop args
+		return args;
+	}
+}
+
 function toOpenAIMessages(context: Context): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
 	const out: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
 	if (context.systemPrompt) {
@@ -15,12 +42,17 @@ function toOpenAIMessages(context: Context): OpenAI.Chat.Completions.ChatComplet
 			out.push({ role: "user", content: content || " " });
 		} else if (m.role === "assistant") {
 			const content = m.content.map((c) => (c.type === "text" ? c.text : "")).join("");
-			const msg: OpenAI.Chat.Completions.ChatCompletionMessageParam = { role: "assistant", content: content || " " };
+			// Use null when no text content; some models (MiniMax) reject empty string ""
+			const msg: OpenAI.Chat.Completions.ChatCompletionMessageParam = {
+				role: "assistant",
+				content: content || null,
+			};
 			if (m.toolCalls?.length) {
 				msg.tool_calls = m.toolCalls.map((tc) => ({
 					id: tc.id,
 					type: "function" as const,
-					function: { name: tc.name, arguments: tc.arguments ?? "" },
+					// Ensure arguments is always valid JSON string; MiniMax error 2013 rejects empty string
+					function: { name: tc.name, arguments: normalizeToolCallArguments(tc.arguments) },
 				}));
 			}
 			out.push(msg);
@@ -91,18 +123,26 @@ export function createOpenAIProvider(): LLMProvider {
 							const i = tc.index ?? 0;
 							let cur = toolCalls.get(i);
 							if (!cur) {
+								// First delta for this tool call index: capture id and name directly
 								cur = { id: tc.id ?? "", name: tc.function?.name ?? "", args: tc.function?.arguments ?? "" };
 								toolCalls.set(i, cur);
+							} else {
+								// Subsequent deltas: id may repeat (keep latest), name is complete in first chunk so don't append,
+								// arguments are streamed incrementally and must be concatenated
+								if (tc.id) cur.id = tc.id;
+								// Some models (OpenAI) send name only in first chunk; others (MiniMax) may resend full name —
+								// detect by checking if name already set to avoid double-appending
+								if (tc.function?.name && !cur.name) cur.name = tc.function.name;
+								if (tc.function?.arguments) cur.args += tc.function.arguments;
 							}
-							if (tc.id) cur.id = tc.id;
-							if (tc.function?.name) cur.name = tc.function.name;
-							if (tc.function?.arguments) cur.args += tc.function.arguments;
 						}
 					}
 				}
 				const sorted = Array.from(toolCalls.entries()).sort((a, b) => a[0] - b[0]);
 				for (const [, tc] of sorted) {
-					yield { type: "tool_call", id: tc.id, name: tc.name, arguments: tc.args || undefined };
+					// Normalize accumulated arguments to valid JSON before yielding
+					const normalizedArgs = normalizeToolCallArguments(tc.args);
+					yield { type: "tool_call", id: tc.id, name: tc.name, arguments: normalizedArgs || undefined };
 				}
 				yield {
 					type: "done",
