@@ -241,6 +241,19 @@ function getCurrentDateTimeContext(): string {
 export const MEMORY_FLUSH_DEFAULT_PROMPT =
 	"Session nearing compaction. Write any lasting notes to MEMORY.md or memory/YYYY-MM-DD.md now. Reply with NO_REPLY if nothing to store.";
 
+/**
+ * 强制细粒度文本透传：
+ * - 保持「真实流式」语义（仍来自上游 stream），不依赖 history 轮询；
+ * - 若上游一次给出较大 delta，这里再切成更小片段，避免 UI 端看起来像“长时间无流式，最后整段出现”。
+ */
+function splitTextDelta(text: string, maxLen: number): string[] {
+	if (!text) return [];
+	if (text.length <= maxLen) return [text];
+	const out: string[] = [];
+	for (let i = 0; i < text.length; i += maxLen) out.push(text.slice(i, i + maxLen));
+	return out;
+}
+
 export async function runMemoryFlushTurn(
 	session: AgentSession,
 	state: AgentState,
@@ -341,7 +354,21 @@ export function createAgentContextFromU(
 		tools: Parameters<typeof llmStreamFn>[1],
 		signal?: AbortSignal,
 	): AsyncIterable<StreamChunk> {
-		for await (const chunk of llmStreamFn(toMinimalMessages(messages), tools, signal)) yield chunk as StreamChunk;
+		// 默认开启强制细分（可用 AGENT_STREAM_MAX_DELTA_CHARS 调整粒度）
+		const maxDeltaCharsRaw = Number(process.env.AGENT_STREAM_MAX_DELTA_CHARS ?? "24");
+		const maxDeltaChars = Number.isFinite(maxDeltaCharsRaw) && maxDeltaCharsRaw > 0 ? Math.floor(maxDeltaCharsRaw) : 24;
+		for await (const rawChunk of llmStreamFn(toMinimalMessages(messages), tools, signal)) {
+			const chunk = rawChunk as StreamChunk;
+			if (chunk.type === "text") {
+				const parts = splitTextDelta(chunk.text ?? "", maxDeltaChars);
+				for (const part of parts) {
+					if (part.length > 0) yield { type: "text", text: part } as StreamChunk;
+				}
+				continue;
+			}
+			// tool_call / done 保持原样透传
+			yield chunk;
+		}
 	};
 	const dateTimeContext = getCurrentDateTimeContext();
 	const soulAndIdentity = readSoulAndIdentity(session.agentDir);

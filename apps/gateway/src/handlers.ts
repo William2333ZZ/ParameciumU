@@ -267,6 +267,20 @@ export function createHandlers(ctx: HandlersContext) {
 	} = ctx;
 	const resetPolicy = getSessionResetPolicy();
 	const invokeIdToSession = new Map<string, InvokeSessionInfo>();
+	const pushRunEvent = (event: string, payload: unknown): void => {
+		// 运行流事件定向推送给前端消费者（operator/client），避免依赖 wss.clients 广播带来的链路不确定性
+		const frame = JSON.stringify({ event, payload });
+		for (const [, entry] of connections) {
+			if (entry.ws.readyState !== 1) continue;
+			const role = entry.identity?.role;
+			if (role === "agent" || role === "node") continue;
+			try {
+				entry.ws.send(frame);
+			} catch {
+				// ignore send errors
+			}
+		}
+	};
 
 	return {
 		connect: async (params: Record<string, unknown>): Promise<GatewayResponse> => {
@@ -687,6 +701,7 @@ export function createHandlers(ctx: HandlersContext) {
 						return ok({ leafId: leafAfterUser, text: "" });
 					}
 					const id = nextInvokeId();
+					const idStr = String(id);
 					invokeIdToSession.set(id, {
 						sessionKey: resolvedKey,
 						transcriptPath,
@@ -695,66 +710,66 @@ export function createHandlers(ctx: HandlersContext) {
 						resolvedKey,
 						appendedTurnCount: 1,
 					});
-					return new Promise<GatewayResponse>((resolve) => {
-						const idStr = String(id);
-						const timeoutMs = ctx.agentResponseTimeoutMs ?? 120_000;
-						const timeout = setTimeout(() => {
+					// 流式：立即返回 runId，通过 agent.run.chunk / agent.run.done 推送；agent.wait 可等待 runIdToPromise
+					let resolveRun: (v: { text: string; toolCalls?: Array<{ name: string; arguments?: string }> }) => void;
+					let rejectRun: (e: Error) => void;
+					const runPromise = new Promise<{ text: string; toolCalls?: Array<{ name: string; arguments?: string }> }>(
+						(res, rej) => {
+							resolveRun = res;
+							rejectRun = rej;
+						},
+					);
+					runIdToPromise.set(idStr, runPromise);
+					const timeoutMs = ctx.agentResponseTimeoutMs ?? 120_000;
+					const timeout = setTimeout(() => {
+						ctx.invokeProgressTimeoutRefs?.delete(idStr);
+						invokeIdToSession.delete(id);
+						if (pendingInvokes.delete(id)) {
+							runIdToPromise.delete(idStr);
+							rejectRun!(new Error("agent on node timeout"));
+							pushRunEvent("agent.run.done", { runId: idStr, text: "", error: "agent on node timeout" });
+						}
+					}, timeoutMs);
+					ctx.invokeProgressTimeoutRefs?.set(idStr, {
+						timer: timeout,
+						resolve: () => {},
+						message: "agent on node timeout",
+					});
+					pendingInvokes.set(id, (result: unknown) => {
+						const ref = ctx.invokeProgressTimeoutRefs?.get(idStr);
+						if (ref) {
+							clearTimeout(ref.timer);
 							ctx.invokeProgressTimeoutRefs?.delete(idStr);
+						}
+						pendingInvokes.delete(id);
+						runIdToPromise.delete(idStr);
+						const out =
+							typeof result === "object" && result !== null && "text" in result
+								? (result as {
+										text: string;
+										toolCalls?: Array<{ name: string; arguments?: string }>;
+										turnMessages?: TurnMessageWire[];
+									})
+								: { text: String(result ?? ""), toolCalls: [] };
+						try {
+							const info = invokeIdToSession.get(id);
 							invokeIdToSession.delete(id);
-							if (ctx.pendingInvokes.delete(id)) resolve(fail(err(504, "agent on node timeout")));
-						}, timeoutMs);
-						ctx.invokeProgressTimeoutRefs?.set(idStr, {
-							timer: timeout,
-							resolve,
-							message: "agent on node timeout",
-						});
-						ctx.pendingInvokes.set(id, (result: unknown) => {
-							const ref = ctx.invokeProgressTimeoutRefs?.get(idStr);
-							if (ref) {
-								clearTimeout(ref.timer);
-								ctx.invokeProgressTimeoutRefs?.delete(idStr);
-							}
-							ctx.pendingInvokes.delete(id);
-							const out =
-								typeof result === "object" && result !== null && "text" in result
-									? (result as {
-											text: string;
-											toolCalls?: Array<{ name: string; arguments?: string }>;
-											turnMessages?: TurnMessageWire[];
-										})
-									: { text: String(result ?? ""), toolCalls: [] };
-							try {
-								const info = invokeIdToSession.get(id);
-								invokeIdToSession.delete(id);
-								if (info) {
-									const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(
-										saveScreenshotsInContent(out.text, info.resolvedKey, ctx.screenshotsDir),
-										ctx.screenshotsDir,
+							if (info) {
+								const assistantContent = replaceAttachmentPlaceholderWithPendingUrl(
+									saveScreenshotsInContent(out.text, info.resolvedKey, ctx.screenshotsDir),
+									ctx.screenshotsDir,
+								);
+								if (Array.isArray(out.turnMessages) && out.turnMessages.length > info.appendedTurnCount) {
+									const remaining = out.turnMessages.slice(info.appendedTurnCount);
+									let toAppend = turnMessagesToStored(remaining, {
+										lastAssistantContent: assistantContent,
+									});
+									toAppend = stripLeadingUserIfInTranscript(
+										info.transcriptPath,
+										info.leafId,
+										toAppend,
 									);
-									if (Array.isArray(out.turnMessages) && out.turnMessages.length > info.appendedTurnCount) {
-										const remaining = out.turnMessages.slice(info.appendedTurnCount);
-										let toAppend = turnMessagesToStored(remaining, {
-											lastAssistantContent: assistantContent,
-										});
-										toAppend = stripLeadingUserIfInTranscript(
-											info.transcriptPath,
-											info.leafId,
-											toAppend,
-										);
-										if (toAppend.length > 0) {
-											const newLeafId = appendTranscriptMessages(
-												info.transcriptPath,
-												info.leafId,
-												toAppend,
-											);
-											updateSessionEntry(info.sessionStorePath, info.resolvedKey, {
-												leafId: newLeafId,
-												updatedAt: Date.now(),
-											});
-										}
-									} else {
-										// 无剩余 turnMessages 时只追加最终 assistant
-										const toAppend = [{ role: "assistant" as const, content: assistantContent }];
+									if (toAppend.length > 0) {
 										const newLeafId = appendTranscriptMessages(
 											info.transcriptPath,
 											info.leafId,
@@ -766,40 +781,59 @@ export function createHandlers(ctx: HandlersContext) {
 										});
 									}
 								} else {
-									let toAppend = buildToAppendFromRemoteResult(
-										out,
-										message as string,
-										resolvedKey,
-										ctx.screenshotsDir,
+									// 无剩余 turnMessages 时只追加最终 assistant
+									const toAppend = [{ role: "assistant" as const, content: assistantContent }];
+									const newLeafId = appendTranscriptMessages(
+										info.transcriptPath,
+										info.leafId,
+										toAppend,
 									);
-									toAppend = stripLeadingUserIfInTranscript(
+									updateSessionEntry(info.sessionStorePath, info.resolvedKey, {
+										leafId: newLeafId,
+										updatedAt: Date.now(),
+									});
+								}
+							} else {
+								let toAppend = buildToAppendFromRemoteResult(
+									out,
+									message as string,
+									resolvedKey,
+									ctx.screenshotsDir,
+								);
+								toAppend = stripLeadingUserIfInTranscript(
+									transcriptPath,
+									remoteEntry?.leafId ?? null,
+									toAppend,
+								);
+								if (toAppend.length > 0) {
+									const newLeafId = appendTranscriptMessages(
 										transcriptPath,
 										remoteEntry?.leafId ?? null,
 										toAppend,
 									);
-									if (toAppend.length > 0) {
-										const newLeafId = appendTranscriptMessages(
-											transcriptPath,
-											remoteEntry?.leafId ?? null,
-											toAppend,
-										);
-										updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
-									}
+									updateSessionEntry(sessionStorePath, resolvedKey, { leafId: newLeafId, updatedAt: Date.now() });
 								}
-							} catch (_) {}
-							const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(
-								saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir),
-								ctx.screenshotsDir,
-							);
-							resolve(ok({ ...out, text: textForAgent }));
-						});
-						entry.ws.send(
-							JSON.stringify({
-								event: "node.invoke.request",
-								payload: { id, __agent: true, message, initialMessages },
-							}),
+							}
+						} catch (_) {}
+						const textForAgent = replaceAttachmentPlaceholderWithPendingUrl(
+							saveScreenshotsInContent(out.text, resolvedKey, ctx.screenshotsDir),
+							ctx.screenshotsDir,
 						);
+						pushRunEvent("agent.run.done", {
+							runId: idStr,
+							text: textForAgent,
+							toolCalls: out.toolCalls,
+						});
+						resolveRun!({ text: textForAgent, toolCalls: out.toolCalls });
 					});
+					pushRunEvent("agent.run.started", { runId: idStr });
+					entry.ws.send(
+						JSON.stringify({
+							event: "node.invoke.request",
+							payload: { id, __agent: true, message, initialMessages },
+						}),
+					);
+					return ok({ runId: idStr });
 				}
 			}
 
@@ -1449,10 +1483,30 @@ export function createHandlers(ctx: HandlersContext) {
 					}
 				}
 				// 无论 append 是否成功都广播，前端可拉 history 拿到当前 transcript 状态
-				if (ctx.broadcast) {
-					ctx.broadcast("agent.run.progress", { runId: id, sessionKey: info.sessionKey });
-				}
+				pushRunEvent("agent.run.progress", { runId: id, sessionKey: info.sessionKey });
 			}
+			return ok({ ok: true });
+		},
+
+		"node.invoke.chunk": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+			const id = params?.id;
+			const chunk = params?.chunk;
+			if (id == null) return fail(err(INVALID_REQUEST, "node.invoke.chunk requires params.id"));
+			if (typeof chunk !== "string") return ok({ ok: true });
+			pushRunEvent("agent.run.chunk", { runId: String(id), chunk });
+			return ok({ ok: true });
+		},
+
+		"node.invoke.tool_call": async (params: Record<string, unknown>): Promise<GatewayResponse> => {
+			const id = params?.id;
+			const toolCall = params?.toolCall;
+			if (id == null) return fail(err(INVALID_REQUEST, "node.invoke.tool_call requires params.id"));
+			if (typeof toolCall !== "object" || toolCall === null) return ok({ ok: true });
+			const tc = toolCall as { id?: string; name?: string; arguments?: string };
+			pushRunEvent("agent.run.tool_call", {
+				runId: String(id),
+				toolCall: { id: tc.id ?? "", name: tc.name ?? "", arguments: tc.arguments },
+			});
 			return ok({ ok: true });
 		},
 

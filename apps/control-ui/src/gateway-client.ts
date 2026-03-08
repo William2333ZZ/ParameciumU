@@ -76,7 +76,6 @@ export class GatewayClient {
 			const { resolve } = this.pending.get(id)!;
 			this.pending.delete(id);
 			resolve(res);
-			return;
 		}
 		if ("event" in res && typeof res.event === "string") {
 			const cbs = this.eventListeners.get(res.event);

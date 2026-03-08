@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { gatewayClient } from "../gateway-client";
@@ -41,6 +41,7 @@ const markdownComponents = {
 };
 
 type ToolCall = { id?: string; name: string; arguments?: string };
+type RunDonePayload = { runId?: string; text?: string; toolCalls?: ToolCall[]; error?: string };
 
 type ToolResultMessage = { role: "toolResult"; text: string; toolCallId?: string; isError?: boolean };
 
@@ -349,17 +350,25 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   const [isNewSession, setIsNewSession] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamingText, setStreamingText] = useState("");
+  /** 流式进行中收到的 tool_call（Cursor 风格：工具卡片随调用逐个出现） */
+  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCall[]>([]);
+  /** 流式阶段每个 toolCallId 对应的结果，由 run.progress 后 loadHistory 合并得到 */
+  const [streamingToolResults, setStreamingToolResults] = useState<Record<string, { text: string; isError?: boolean }>>({});
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  const loadingRef = useRef(false);
   /** 上传到 agent 侧 ~/.uagent_tmp 的文件（path 为 agent 本机路径），发送消息时会附带告知 agent */
   const [uploadedFile, setUploadedFile] = useState<{ path: string; filename: string } | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chunkBufferRef = useRef("");
+  const chunkFlushRafRef = useRef<number | null>(null);
+  const pendingRunEventsRef = useRef<Map<string, { chunks: string[]; toolCalls: ToolCall[]; done?: RunDonePayload }>>(new Map());
   /** 当前对话使用的 sessionKey，用于发送后从服务端重载历史（保证多轮一致） */
   const sessionKeyRef = useRef<string>("");
   /** 本轮发送是否为「新建会话」，run.done 后需清除并切到 main */
@@ -375,6 +384,133 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 当前消息条数，run.done 后 loadHistory 返回时只有不少于当前条数才应用，避免用旧数据覆盖刚追加的回复 */
   const messageCountRef = useRef(0);
+  /** run.done 后延迟一次 loadHistory，确保按「写入之后再拉」拿到完整 transcript，避免首条回复不显示 */
+  const loadAfterDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamDebugEnabledRef = useRef(false);
+  const streamDebugLog = useCallback((event: string, data?: unknown) => {
+    if (!streamDebugEnabledRef.current) return;
+    const ts = new Date().toISOString();
+    if (data === undefined) console.debug(`[chat-stream][${ts}] ${event}`);
+    else console.debug(`[chat-stream][${ts}] ${event}`, data);
+  }, []);
+  const clearFallbackTimer = useCallback(() => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+  }, []);
+  const flushChunkBuffer = useCallback(() => {
+    if (!chunkBufferRef.current) return;
+    const chunk = chunkBufferRef.current;
+    chunkBufferRef.current = "";
+    setStreamingText((t) => t + chunk);
+  }, []);
+  const scheduleChunkFlush = useCallback(() => {
+    if (chunkFlushRafRef.current != null) return;
+    chunkFlushRafRef.current = window.requestAnimationFrame(() => {
+      chunkFlushRafRef.current = null;
+      flushChunkBuffer();
+    });
+  }, [flushChunkBuffer]);
+  const clearChunkBuffer = useCallback(() => {
+    chunkBufferRef.current = "";
+    if (chunkFlushRafRef.current != null) {
+      window.cancelAnimationFrame(chunkFlushRafRef.current);
+      chunkFlushRafRef.current = null;
+    }
+  }, []);
+  const clearPendingRunEvents = useCallback(() => {
+    pendingRunEventsRef.current.clear();
+  }, []);
+  const bufferPendingRunChunk = useCallback((runId: string, chunk: string) => {
+    const m = pendingRunEventsRef.current;
+    const cur = m.get(runId) ?? { chunks: [], toolCalls: [] };
+    cur.chunks.push(chunk);
+    m.set(runId, cur);
+  }, []);
+  const bufferPendingRunToolCall = useCallback((runId: string, tc: ToolCall) => {
+    const m = pendingRunEventsRef.current;
+    const cur = m.get(runId) ?? { chunks: [], toolCalls: [] };
+    cur.toolCalls.push(tc);
+    m.set(runId, cur);
+  }, []);
+  const bufferPendingRunDone = useCallback((runId: string, done: RunDonePayload) => {
+    const m = pendingRunEventsRef.current;
+    const cur = m.get(runId) ?? { chunks: [], toolCalls: [] };
+    cur.done = done;
+    m.set(runId, cur);
+  }, []);
+  const consumePendingRunEvents = useCallback((runId: string) => {
+    const cur = pendingRunEventsRef.current.get(runId);
+    if (!cur) return undefined;
+    pendingRunEventsRef.current.delete(runId);
+    return cur;
+  }, []);
+  const scheduleFallbackHistorySync = useCallback((reason?: string) => {
+    streamDebugLog("fallback.schedule", {
+      reason: reason ?? "unknown",
+      runId: currentRunIdRef.current,
+      sessionKey: sessionKeyRef.current,
+      timeoutMs: FALLBACK_MS,
+    });
+    clearFallbackTimer();
+    fallbackTimerRef.current = setTimeout(() => {
+      fallbackTimerRef.current = null;
+      if (currentRunIdRef.current === null) return;
+      const sk = sessionKeyRef.current;
+      streamDebugLog("fallback.fire", {
+        runId: currentRunIdRef.current,
+        sessionKey: sk,
+      });
+      if (!sk) {
+        // 保持流式状态，避免「中途消失」；仅等待 run.done 或后续事件收口
+        return;
+      }
+      // 仅解除 loading、拉历史；不清 currentRunIdRef，以便稍后到达的 run.done 仍能追加回复，避免「思考中消失但回复不显示」
+      gatewayClient
+        .request<{ messages?: Array<{ role: string; content?: string; toolCalls?: ToolCall[]; senderAgentId?: string }> }>("chat.history", { sessionKey: sk, limit: 50 })
+        .then((res) => {
+          if (sessionKeyRef.current !== sk) return;
+          if (!res.ok || !res.payload?.messages) return;
+          streamDebugLog("fallback.history.loaded", {
+            runId: currentRunIdRef.current,
+            messageCount: res.payload.messages.length,
+          });
+          const loaded = res.payload.messages
+            .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
+            .map((m): ChatMessage => {
+              const text = m.content ?? "";
+              const mm = m as { isError?: boolean; toolCalls?: ToolCall[]; toolCallId?: string; senderAgentId?: string };
+              if (m.role === "user") return { role: "user", text };
+              if (m.role === "toolResult") return { role: "toolResult", text, ...(mm.toolCallId != null && { toolCallId: mm.toolCallId }), ...(mm.isError !== undefined && { isError: mm.isError }) };
+              return { role: "agent", text, ...(mm.toolCalls?.length && { toolCalls: mm.toolCalls }), ...(mm.senderAgentId && { senderAgentId: mm.senderAgentId }) };
+            });
+          // fallback 仅在确认最终 assistant 已落盘时收口，否则只做同步
+          const last = loaded[loaded.length - 1];
+          const isFinalAssistant = !!last && last.role === "agent" && !(last as ChatMessage & { toolCalls?: ToolCall[] }).toolCalls?.length;
+          if (isFinalAssistant && currentRunIdRef.current != null) {
+            streamDebugLog("fallback.finish_from_history", {
+              runId: currentRunIdRef.current,
+              textLen: (last as { text?: string }).text?.length ?? 0,
+            });
+            setMessages(loaded);
+            requestAnimationFrame(() => {
+              currentRunIdRef.current = null;
+              setCurrentRunId(null);
+              setLoading(false);
+              setStreamingText("");
+              setStreamingToolCalls([]);
+              setStreamingToolResults({});
+            });
+            return;
+          }
+          setMessages(loaded);
+        })
+        .catch(() => {
+          streamDebugLog("fallback.history.error");
+        });
+    }, FALLBACK_MS);
+  }, [clearFallbackTimer, streamDebugLog]);
   const isGroup = isGroupSessionKey(sessionKey, sessions);
   const prefix = sessionKeyPrefix(agentId);
   const mainSessionKey = `agent:${agentId}:main`;
@@ -428,7 +564,12 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
   }, [loadSessions]);
 
   const loadHistory = useCallback(
-    (sk: string, opts?: { onlyReplaceIfNonEmpty?: boolean; forceReplace?: boolean }) => {
+    (sk: string, opts?: {
+      onlyReplaceIfNonEmpty?: boolean;
+      forceReplace?: boolean;
+      /** 拉取成功后调用，用于流式阶段合并工具结果到 streamingToolResults */
+      onLoaded?: (messages: ChatMessage[]) => void;
+    }) => {
       if (!sk) {
         if (!opts?.onlyReplaceIfNonEmpty) setMessages([]);
         return;
@@ -469,9 +610,12 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
                 };
               });
             const forceReplace = opts?.forceReplace === true;
-            const notStale = loaded.length >= messageCountRef.current;
+            // 仅当服务端消息数严格多于当前时替换，避免 run.done 刚追加回复后被 loadHistory 的旧数据覆盖（导致「回复总慢一句」）
+            const notStale = opts?.onlyReplaceIfNonEmpty ? loaded.length > messageCountRef.current : loaded.length >= messageCountRef.current;
             const allowEmpty = !opts?.onlyReplaceIfNonEmpty;
-            if (forceReplace || (notStale && (allowEmpty || loaded.length > 0))) setMessages(loaded);
+            const safeToReplace = forceReplace ? loaded.length > 0 : (notStale && (allowEmpty || loaded.length > 0));
+            if (safeToReplace) setMessages(loaded);
+            opts?.onLoaded?.(loaded);
           } else if (!opts?.onlyReplaceIfNonEmpty) setMessages([]);
         })
         .catch(() => {
@@ -492,6 +636,7 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
 
   sessionKeyRef.current = sessionKey;
   messageCountRef.current = messages.length;
+  loadingRef.current = loading;
 
   /** 仅当从外部打开某会话时（props 变化）加载该会话历史；不依赖 sessionKey state，避免发送/run.done 后误触发 */
   useEffect(() => {
@@ -503,11 +648,23 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     messageCountRef.current = 0;
     setErr(null);
     loadHistory(sk);
+    // 写入后再拉：兜底首条（如上线招呼）在打开前刚写入 transcript 的情况；多拉一次以等到招呼回复（agent 用 chat.send 发招呼可能需数秒）
+    const t1 = setTimeout(() => {
+      if (sessionKeyRef.current === sk) loadHistory(sk, { onlyReplaceIfNonEmpty: true });
+    }, 600);
+    const t2 = setTimeout(() => {
+      if (sessionKeyRef.current === sk) loadHistory(sk, { onlyReplaceIfNonEmpty: true });
+    }, 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [initialAgentId, initialSessionKey, loadHistory]);
 
+  const streamingResultCount = Object.keys(streamingToolResults).length;
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingText]);
+  }, [messages, streamingText, streamingToolCalls.length, streamingResultCount]);
 
   /** 生成新建会话的唯一 sessionKey（格式 agent:id:s-<time>-<random>） */
   const generateNewSessionKey = useCallback(() => {
@@ -552,14 +709,16 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     setSessionKey(key);
     setErr(null);
     setMessages([]); // 先清空，避免在加载时仍显示上一会话内容
-    if (fallbackTimerRef.current) {
-      clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
+    clearFallbackTimer();
     currentRunIdRef.current = null;
     setCurrentRunId(null);
+    loadingRef.current = false;
     setLoading(false);
+    clearPendingRunEvents();
+    clearChunkBuffer();
     setStreamingText("");
+    setStreamingToolCalls([]);
+    setStreamingToolResults({});
     // 切换会话时必须用服务端历史覆盖，否则会被 render 里的 messageCountRef 覆盖导致不应用
     loadHistory(key, { forceReplace: true });
   };
@@ -605,48 +764,227 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       gatewayClient.request("chat.abort", { runId: currentRunId }).catch(() => {});
       currentRunIdRef.current = null;
       setCurrentRunId(null);
+      loadingRef.current = false;
       setLoading(false);
+      clearPendingRunEvents();
+      clearChunkBuffer();
       setStreamingText("");
+      setStreamingToolCalls([]);
+      setStreamingToolResults({});
     }
-  }, [currentRunId]);
+  }, [clearChunkBuffer, clearPendingRunEvents, currentRunId]);
 
-  // 只注册一次 run.chunk / run.done / run.progress，用 ref 判断 runId，避免 run.done 早于 effect 触发而漏接导致一直「思考」
+  // runId 存在时轮询 chat.history：若 run.done 未到达（如 broadcast 丢失），也能从历史同步出回复
+  const POLL_INTERVAL_MS = 2000;
   useEffect(() => {
+    const enabled =
+      typeof window !== "undefined" &&
+      (window.localStorage.getItem("CHAT_STREAM_DEBUG") === "1" ||
+        window.localStorage.getItem("chat.stream.debug") === "1");
+    streamDebugEnabledRef.current = enabled;
+    if (enabled) {
+      streamDebugLog("debug.enabled", {
+        hint: "localStorage.CHAT_STREAM_DEBUG=1 或 localStorage['chat.stream.debug']=1",
+      });
+    }
+  }, [streamDebugLog]);
+
+  useEffect(() => {
+    if (currentRunId == null) clearChunkBuffer();
+  }, [clearChunkBuffer, currentRunId]);
+
+  useEffect(() => {
+    if (!currentRunId) return;
+    streamDebugLog("poll.start", { runId: currentRunId, sessionKey: sessionKeyRef.current });
+    const poll = () => {
+      if (currentRunIdRef.current === null) return;
+      const sk = sessionKeyRef.current;
+      if (!sk || sk.includes(":group-")) return;
+      gatewayClient
+        .request<{ messages?: Array<{ role: string; content?: string; toolCalls?: ToolCall[]; toolCallId?: string; isError?: boolean; senderAgentId?: string }> }>("chat.history", {
+          sessionKey: sk,
+          limit: 50,
+        })
+        .then((res) => {
+          if (currentRunIdRef.current === null) return;
+          if (sessionKeyRef.current !== sk) return;
+          if (!res.ok || !res.payload?.messages) return;
+          streamDebugLog("poll.history.loaded", {
+            runId: currentRunIdRef.current,
+            messageCount: res.payload.messages.length,
+          });
+          const loaded = res.payload.messages
+            .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
+            .map((m): ChatMessage => {
+              const text = m.content ?? "";
+              const mm = m as { isError?: boolean; toolCalls?: ToolCall[]; toolCallId?: string; senderAgentId?: string };
+              if (m.role === "user") return { role: "user", text };
+              if (m.role === "toolResult") return { role: "toolResult", text, ...(mm.toolCallId != null && { toolCallId: mm.toolCallId }), ...(mm.isError !== undefined && { isError: mm.isError }) };
+              return { role: "agent", text, ...(mm.toolCalls?.length && { toolCalls: mm.toolCalls }), ...(mm.senderAgentId && { senderAgentId: mm.senderAgentId }) };
+            });
+          const last = loaded[loaded.length - 1];
+          const isFinalAssistant = !!last && last.role === "agent" && !(last as ChatMessage & { toolCalls?: ToolCall[] }).toolCalls?.length;
+          if (isFinalAssistant && currentRunIdRef.current != null) {
+            streamDebugLog("poll.finish_from_history", {
+              runId: currentRunIdRef.current,
+              textLen: (last as { text?: string }).text?.length ?? 0,
+            });
+            setMessages(loaded);
+            requestAnimationFrame(() => {
+              currentRunIdRef.current = null;
+              setCurrentRunId(null);
+              loadingRef.current = false;
+              setLoading(false);
+              setStreamingText("");
+              setStreamingToolCalls([]);
+              setStreamingToolResults({});
+            });
+            return;
+          }
+          if (loaded.length > messageCountRef.current) setMessages(loaded);
+        })
+        .catch(() => {});
+    };
+    const t = setInterval(poll, POLL_INTERVAL_MS);
+    poll();
+    return () => {
+      streamDebugLog("poll.stop", { runId: currentRunIdRef.current });
+      clearInterval(t);
+    };
+  }, [currentRunId, streamDebugLog]);
+
+  // 只注册一次 run.chunk / run.done / run.progress / run.tool_call，用 ref 判断 runId（Cursor 风格：流式文本 + 工具卡片逐个出现）
+  useLayoutEffect(() => {
+    const unStarted = gatewayClient.onEvent("agent.run.started", (payload: unknown) => {
+      const p = payload as { runId?: string };
+      const rid = currentRunIdRef.current;
+      if (rid != null && String(p?.runId) === String(rid)) {
+        streamDebugLog("event.started", { runId: rid });
+        clearChunkBuffer();
+        setStreamingText("");
+        setStreamingToolCalls([]);
+        setStreamingToolResults({});
+      }
+    });
     const unChunk = gatewayClient.onEvent("agent.run.chunk", (payload: unknown) => {
       const p = payload as { runId?: string; chunk?: string };
       const rid = currentRunIdRef.current;
-      if (rid != null && String(p?.runId) === String(rid) && typeof p.chunk === "string") {
-        setStreamingText((t) => t + p.chunk);
+      if (rid != null && typeof p.chunk === "string") {
+        if (p?.runId != null && String(p.runId) !== String(rid)) {
+          streamDebugLog("event.chunk.runid_mismatch", { expected: rid, got: p.runId });
+        }
+        streamDebugLog("event.chunk", { runId: rid, chunkLen: p.chunk.length });
+        scheduleFallbackHistorySync("chunk");
+        chunkBufferRef.current += p.chunk;
+        scheduleChunkFlush();
+      } else if (rid == null && loadingRef.current && typeof p.chunk === "string" && typeof p.runId === "string" && p.runId.trim()) {
+        bufferPendingRunChunk(p.runId, p.chunk);
+        streamDebugLog("event.chunk.buffered_before_runid", { runId: p.runId, chunkLen: p.chunk.length });
       }
+    });
+    const unToolCall = gatewayClient.onEvent("agent.run.tool_call", (payload: unknown) => {
+      const p = payload as { runId?: string; toolCall?: { id?: string; name?: string; arguments?: string } };
+      const rid = currentRunIdRef.current;
+      if (!p?.toolCall) return;
+      if (rid == null) {
+        if (loadingRef.current && typeof p?.runId === "string" && p.runId.trim()) {
+          bufferPendingRunToolCall(p.runId, { id: p.toolCall.id ?? "", name: p.toolCall.name ?? "", arguments: p.toolCall.arguments });
+          streamDebugLog("event.tool_call.buffered_before_runid", { runId: p.runId, toolName: p.toolCall.name ?? "" });
+        }
+        return;
+      }
+      if (p?.runId != null && String(p.runId) !== String(rid)) {
+        streamDebugLog("event.tool_call.runid_mismatch", { expected: rid, got: p.runId });
+      }
+      streamDebugLog("event.tool_call", { runId: rid, toolName: p.toolCall.name ?? "" });
+      scheduleFallbackHistorySync("tool_call");
+      const tc = p.toolCall;
+      setStreamingToolCalls((prev) => [
+        ...prev,
+        { id: tc.id ?? "", name: tc.name ?? "", arguments: tc.arguments },
+      ]);
     });
     const unProgress = gatewayClient.onEvent("agent.run.progress", (payload: unknown) => {
       const p = payload as { runId?: string; sessionKey?: string };
-      if (p?.sessionKey && sessionKeyRef.current === p.sessionKey) {
-        loadHistory(p.sessionKey, { forceReplace: true });
-      }
+      if (!p?.sessionKey || sessionKeyRef.current !== p.sessionKey) return;
+      streamDebugLog("event.progress", { runId: p.runId, sessionKey: p.sessionKey });
+      if (currentRunIdRef.current != null) scheduleFallbackHistorySync("progress");
+      loadHistory(p.sessionKey, {
+        onlyReplaceIfNonEmpty: true,
+        onLoaded: (loaded) => {
+          if (currentRunIdRef.current == null) return;
+          // 从历史末尾取连续 toolResult，再向前找到带 toolCalls 的 assistant（跳过中间的「仅文本」assistant）
+          let i = loaded.length - 1;
+          const toolResults: ToolResultMessage[] = [];
+          while (i >= 0) {
+            const m = loaded[i];
+            if (m?.role === "toolResult") {
+              toolResults.unshift(m as ToolResultMessage);
+              i--;
+            } else break;
+          }
+          while (i >= 0) {
+            const m = loaded[i];
+            if (m?.role === "agent" && (m as ChatMessage & { toolCalls?: ToolCall[] }).toolCalls?.length) break;
+            i--;
+          }
+          const lastAssistant = loaded[i];
+          const toolCalls = lastAssistant?.role === "agent" ? (lastAssistant as ChatMessage & { toolCalls?: ToolCall[] }).toolCalls : undefined;
+          if (!toolCalls?.length || toolResults.length === 0) return;
+          const byId: Record<string, { text: string; isError?: boolean }> = {};
+          for (const res of toolResults) {
+            const id = res.toolCallId ?? "";
+            if (id) byId[id] = { text: res.text, isError: res.isError };
+          }
+          setStreamingToolResults((prev) => ({ ...prev, ...byId }));
+        },
+      });
     });
     const unDone = gatewayClient.onEvent("agent.run.done", (payload: unknown) => {
-      const p = payload as { runId?: string; text?: string; toolCalls?: ToolCall[] };
+      const p = payload as RunDonePayload;
       const rid = currentRunIdRef.current;
-      if (rid == null || String(p?.runId) !== String(rid)) return;
-      if (fallbackTimerRef.current) {
-        clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
+      if (rid == null) {
+        if (loadingRef.current && typeof p?.runId === "string" && p.runId.trim()) {
+          bufferPendingRunDone(p.runId, p);
+          streamDebugLog("event.done.buffered_before_runid", { runId: p.runId, textLen: (p.text ?? "").length });
+        }
+        return;
       }
-      currentRunIdRef.current = null;
-      setCurrentRunId(null);
-      setLoading(false);
-      setStreamingText("");
-      // 参考 OpenClaw：先立即追加回复（展示无延迟），再拉历史与服务端同步；loadHistory 用 messageCountRef 避免覆盖
-      if (sessionKeyRef.current === sentSessionKeyRef.current) {
-        const replyText = (p.text ?? "") || "(无文本回复)";
+      if (String(p?.runId) !== String(rid)) return;
+      flushChunkBuffer();
+      streamDebugLog("event.done", {
+        runId: rid,
+        textLen: (p.text ?? "").length,
+        toolCallCount: p.toolCalls?.length ?? 0,
+        hasError: !!p.error,
+      });
+      clearFallbackTimer();
+      const replyText = p.error ? `[错误] ${p.error}` : ((p.text ?? "") || "(无文本回复)");
+      const sk = sessionKeyRef.current;
+      const sameSession = sk === sentSessionKeyRef.current;
+      if (sameSession) {
         setMessages((m) => [
           ...m,
           { role: "agent", text: replyText, ...(p.toolCalls?.length && { toolCalls: p.toolCalls }) },
         ]);
-        const sk = sessionKeyRef.current;
-        // 仅当服务端条数不少于当前才覆盖，避免用未写完的 transcript 覆盖刚追加的回复（对齐 OpenClaw）
+        setStreamingText(replyText);
+      }
+      requestAnimationFrame(() => {
+        currentRunIdRef.current = null;
+        setCurrentRunId(null);
+              loadingRef.current = false;
+        setLoading(false);
+        setStreamingText("");
+        setStreamingToolCalls([]);
+        setStreamingToolResults({});
+      });
+      if (sameSession) {
         loadHistory(sk, { onlyReplaceIfNonEmpty: true });
+        if (loadAfterDoneTimerRef.current) clearTimeout(loadAfterDoneTimerRef.current);
+        loadAfterDoneTimerRef.current = setTimeout(() => {
+          loadAfterDoneTimerRef.current = null;
+          if (sessionKeyRef.current === sk) loadHistory(sk, { onlyReplaceIfNonEmpty: true });
+        }, 350);
       }
       if (wasNewSessionRef.current) {
         wasNewSessionRef.current = false;
@@ -656,11 +994,20 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       }
     });
     return () => {
+      unStarted();
       unChunk();
+      unToolCall();
       unProgress();
       unDone();
+      clearFallbackTimer();
+      clearPendingRunEvents();
+      clearChunkBuffer();
+      if (loadAfterDoneTimerRef.current) {
+        clearTimeout(loadAfterDoneTimerRef.current);
+        loadAfterDoneTimerRef.current = null;
+      }
     };
-  }, [loadHistory]);
+  }, [bufferPendingRunChunk, bufferPendingRunDone, bufferPendingRunToolCall, clearChunkBuffer, clearFallbackTimer, clearPendingRunEvents, flushChunkBuffer, loadHistory, scheduleChunkFlush, scheduleFallbackHistorySync, streamDebugLog]);
 
   const send = async () => {
     let text = input.trim();
@@ -686,9 +1033,14 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
     wasNewSessionRef.current = isNewSession;
     setInput("");
     setMessages((m) => [...m, { role: "user", text: displayText }]);
+    loadingRef.current = true;
     setLoading(true);
     setErr(null);
+    clearPendingRunEvents();
+    clearChunkBuffer();
     setStreamingText("");
+    setStreamingToolCalls([]);
+    setStreamingToolResults({});
     const isGroupSend = effectiveKey.includes(":group-");
     try {
       if (isGroupSend) {
@@ -767,51 +1119,53 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
         const runId = (res.payload as { runId?: string }).runId;
         const reply = (res.payload as { text?: string }).text;
         if (runId) {
-          currentRunIdRef.current = String(runId);
+          const runIdStr = String(runId);
+          currentRunIdRef.current = runIdStr;
           setCurrentRunId(runId);
-          if (reply) setStreamingText(reply);
-          if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
-          fallbackTimerRef.current = setTimeout(() => {
-            fallbackTimerRef.current = null;
-            if (currentRunIdRef.current === null) return;
-            const sk = sessionKeyRef.current;
-            if (!sk) {
-              currentRunIdRef.current = null;
-              setCurrentRunId(null);
-              setLoading(false);
-              setStreamingText("");
-              return;
+          streamDebugLog("send.run_started", {
+            runId: runIdStr,
+            sessionKey: effectiveKey,
+            textLen: messageBody.length,
+          });
+          const pending = consumePendingRunEvents(runIdStr);
+          if (pending) {
+            if (pending.chunks.length > 0) {
+              const joined = pending.chunks.join("");
+              chunkBufferRef.current += joined;
+              scheduleChunkFlush();
+              streamDebugLog("event.chunk.replayed_after_runid", { runId: runIdStr, chunkCount: pending.chunks.length, textLen: joined.length });
             }
-            gatewayClient
-              .request<{ messages?: Array<{ role: string; content?: string; toolCalls?: ToolCall[]; senderAgentId?: string }> }>("chat.history", { sessionKey: sk, limit: 50 })
-              .then((res) => {
-                if (currentRunIdRef.current === null) return;
-                if (sessionKeyRef.current !== sk) return;
-                if (!res.ok || !res.payload?.messages) return;
-                const loaded = res.payload.messages
-                  .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
-                  .map((m): ChatMessage => {
-                    const text = m.content ?? "";
-                    const mm = m as { isError?: boolean; toolCalls?: ToolCall[]; toolCallId?: string; senderAgentId?: string };
-                    if (m.role === "user") return { role: "user", text };
-                    if (m.role === "toolResult") return { role: "toolResult", text, ...(mm.toolCallId != null && { toolCallId: mm.toolCallId }), ...(mm.isError !== undefined && { isError: mm.isError }) };
-                    return { role: "agent", text, ...(mm.toolCalls?.length && { toolCalls: mm.toolCalls }), ...(mm.senderAgentId && { senderAgentId: mm.senderAgentId }) };
-                  });
+            if (pending.toolCalls.length > 0) {
+              setStreamingToolCalls((prev) => [...prev, ...pending.toolCalls]);
+            }
+            if (pending.done) {
+              const done = pending.done;
+              streamDebugLog("event.done.replayed_after_runid", { runId: runIdStr, textLen: (done.text ?? "").length });
+              flushChunkBuffer();
+              const replyText = done.error ? `[错误] ${done.error}` : ((done.text ?? "") || "(无文本回复)");
+              const sk = sessionKeyRef.current;
+              const sameSession = sk === sentSessionKeyRef.current;
+              if (sameSession) {
+                setMessages((m) => [
+                  ...m,
+                  { role: "agent", text: replyText, ...(done.toolCalls?.length && { toolCalls: done.toolCalls }) },
+                ]);
+                setStreamingText(replyText);
+              }
+              requestAnimationFrame(() => {
                 currentRunIdRef.current = null;
                 setCurrentRunId(null);
+                loadingRef.current = false;
                 setLoading(false);
                 setStreamingText("");
-                setMessages(loaded);
-              })
-              .catch(() => {
-                if (currentRunIdRef.current !== null) {
-                  currentRunIdRef.current = null;
-                  setCurrentRunId(null);
-                  setLoading(false);
-                  setStreamingText("");
-                }
+                setStreamingToolCalls([]);
+                setStreamingToolResults({});
               });
-          }, FALLBACK_MS);
+              return;
+            }
+          }
+          if (reply) setStreamingText(reply);
+          scheduleFallbackHistorySync("run_started");
         } else {
           // Gateway 的 agent 方法在 agent 跑完后才 resolve，无 runId；直接拉完整历史，使工具调用与「点击进入」界面一致（含 toolResult）
           const payload = res.payload as { text?: string; toolCalls?: ToolCall[] };
@@ -942,15 +1296,37 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
             {buildDisplayBlocks(messages).map((block, i) => (
               <ChatMessageBlock key={i} block={block} />
             ))}
-            {streamingText && (
-              <div className="chat-msg agent streaming">
-                <div className="chat-msg-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{streamingText}</ReactMarkdown>
+            {/* Cursor 风格：流式区域 = 流式文本 + 进行中的工具卡片（仅在有 currentRunId 时显示，避免 run.done 后残留） */}
+            {currentRunId && (loading || streamingText || streamingToolCalls.length > 0) ? (
+              <div className="tool-group streaming-block">
+                <div className="chat-msg agent streaming">
+                  <div className="chat-msg-content">
+                    {streamingText ? (
+                      <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{streamingText}</div>
+                    ) : (
+                      <span className="muted">正在接收回复…</span>
+                    )}
+                  </div>
+                  <span className="chat-cursor" aria-hidden />
                 </div>
-                <span className="chat-cursor" />
+                {streamingToolCalls.length > 0 && (
+                  <div className="tool-cards">
+                    {streamingToolCalls.map((tc, j) => (
+                      <ToolCard
+                        key={tc.id || j}
+                        call={tc}
+                        result={
+                          tc.id && streamingToolResults[tc.id]
+                            ? { role: "toolResult", text: streamingToolResults[tc.id].text, isError: streamingToolResults[tc.id].isError }
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-            {loading && !streamingText && (
+            ) : null}
+            {loading && !currentRunId && (
               <div className="chat-msg agent">
                 <div className="chat-msg-content">思考中…</div>
               </div>

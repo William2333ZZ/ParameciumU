@@ -50,7 +50,7 @@ async function handleFileUpload(
 }
 
 import { buildSessionFromU, createAgentContextFromU } from "@monou/agent-from-dir";
-import { type AgentMessage, runAgentTurnWithTools } from "@monou/agent-sdk";
+import { type AgentMessage, runAgentTurnWithTools, runAgentTurnWithToolsStreaming } from "@monou/agent-sdk";
 import { type CronJob, CronStore } from "@monou/cron";
 import { runScheduler } from "@monou/cron/scheduler";
 import { createId } from "@monou/shared";
@@ -250,22 +250,54 @@ async function runOneTurn(
 						ws.send(
 							JSON.stringify({
 								method: "node.invoke.progress",
-								params: { id: opts.invokeId, turnMessages: wire },
+								params: { id: opts.invokeId, runId: String(opts.invokeId), turnMessages: wire },
 								id: `progress-${opts.invokeId}`,
 							}),
 						);
 					}
 				}
 			: undefined;
-	const result = await runAgentTurnWithTools(
-		state,
-		config,
-		streamFn,
-		message,
-		session.executeTool,
-		undefined,
-		onProgress,
-	);
+	const invokeId = opts?.invokeId;
+	const runId = invokeId != null ? String(invokeId) : undefined;
+	const onTextChunk =
+		runId != null
+			? (chunk: string) => {
+					if (chunk.length > 0) {
+						ws.send(
+							JSON.stringify({
+								method: "node.invoke.chunk",
+								params: { id: invokeId, runId, chunk },
+								id: `chunk-${invokeId}-${Date.now()}`,
+							}),
+						);
+					}
+				}
+			: undefined;
+	const onToolCall =
+		runId != null
+			? (call: { id: string; name: string; arguments?: string }) => {
+					ws.send(
+						JSON.stringify({
+							method: "node.invoke.tool_call",
+							params: { id: invokeId, runId, toolCall: { id: call.id, name: call.name, arguments: call.arguments } },
+							id: `tool_call-${invokeId}-${call.id}`,
+						}),
+					);
+				}
+			: undefined;
+	const result = await (onTextChunk || onToolCall
+		? runAgentTurnWithToolsStreaming(
+				state,
+				config,
+				streamFn,
+				message,
+				session.executeTool,
+				undefined,
+				onTextChunk ?? undefined,
+				onToolCall ?? undefined,
+				onProgress,
+			)
+		: runAgentTurnWithTools(state, config, streamFn, message, session.executeTool, undefined, onProgress));
 	const newMessages = result.state.messages.slice(initialLen);
 	const turnMessages = newMessages.length > 0 ? agentMessagesToTurnWire(newMessages) : undefined;
 	return {
@@ -402,14 +434,16 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
 		  }
 		| undefined;
 	if (msg.event === "node.invoke.request" && payload?.__agent === true && typeof payload.message === "string") {
-		const invokeId = payload.id;
+		// Gateway 传 id 为字符串（如 inv-1-ts）；兼容数字以便鲁棒
+		const rawId = payload.id;
+		const invokeId = rawId != null && rawId !== "" ? String(rawId) : undefined;
 		const prevMemory = process.env.MEMORY_WORKSPACE;
 		const prevCron = process.env.CRON_STORE;
 		process.env.MEMORY_WORKSPACE = agentDir;
 		process.env.CRON_STORE = cronStorePath;
 		try {
 			const result = await runOneTurn(payload.message, payload.initialMessages, {
-				invokeId: typeof invokeId === "string" ? invokeId : undefined,
+				invokeId,
 			});
 			ws.send(
 				JSON.stringify({
@@ -439,7 +473,7 @@ ws.on("message", async (data: Buffer | ArrayBuffer) => {
 			ws.send(
 				JSON.stringify({
 					method: "node.invoke.result",
-					params: { id: invokeId, result: { text: `[error] ${(err as Error).message}`, toolCalls: [] } },
+					params: { id: rawId, result: { text: `[error] ${(err as Error).message}`, toolCalls: [] } },
 					id: `result-${invokeId}`,
 				}),
 			);
