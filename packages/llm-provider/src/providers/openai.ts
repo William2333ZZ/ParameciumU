@@ -72,12 +72,24 @@ export function createOpenAIProvider(): LLMProvider {
 				max_tokens: options?.maxTokens ?? 4096,
 			};
 			if (tools) params.tools = tools;
+			function isCompleteToolCall(id: string, name: string, args: string): boolean {
+				if (!id || !name) return false;
+				if (!args || args.trim() === "") return true;
+				try {
+					JSON.parse(args);
+					return true;
+				} catch {
+					return false;
+				}
+			}
+
 			try {
 				const stream = await client.chat.completions.create(params, {
 					signal: options?.signal,
 				});
 				const contentParts: string[] = [];
 				const toolCalls: Map<number, { id: string; name: string; args: string }> = new Map();
+				const yieldedToolCallIndices = new Set<number>();
 				for await (const chunk of stream) {
 					const choice = chunk.choices[0];
 					if (!choice?.delta) continue;
@@ -97,12 +109,18 @@ export function createOpenAIProvider(): LLMProvider {
 							if (tc.id) cur.id = tc.id;
 							if (tc.function?.name) cur.name = tc.function.name;
 							if (tc.function?.arguments) cur.args += tc.function.arguments;
+							if (!yieldedToolCallIndices.has(i) && isCompleteToolCall(cur.id, cur.name, cur.args)) {
+								yieldedToolCallIndices.add(i);
+								yield { type: "tool_call", id: cur.id, name: cur.name, arguments: cur.args || undefined };
+							}
 						}
 					}
 				}
 				const sorted = Array.from(toolCalls.entries()).sort((a, b) => a[0] - b[0]);
-				for (const [, tc] of sorted) {
-					yield { type: "tool_call", id: tc.id, name: tc.name, arguments: tc.args || undefined };
+				for (const [idx, tc] of sorted) {
+					if (!yieldedToolCallIndices.has(idx)) {
+						yield { type: "tool_call", id: tc.id, name: tc.name, arguments: tc.args || undefined };
+					}
 				}
 				yield {
 					type: "done",

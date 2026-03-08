@@ -132,13 +132,13 @@ export async function runAgentTurnWithTools(
 	signal?: AbortSignal,
 	onProgress?: (roundMessages: import("@monou/agent-core").AgentMessage[]) => void | Promise<void>,
 ): Promise<AgentRunResult> {
-	return runAgentTurnWithToolsStreaming(state, config, streamFn, userInput, executeTool, signal, undefined, onProgress);
+	return runAgentTurnWithToolsStreaming(state, config, streamFn, userInput, executeTool, signal, undefined, undefined, onProgress);
 }
 
 /**
- * 带工具执行的一轮，且支持流式回调：onTextChunk(text) 在每收到一段文本时调用，用于 TUI 逐字展示。
- * onProgress(roundMessages) 在每轮工具执行完后调用，便于上层写 transcript / 推前端，实现「每轮工具完成即落盘、前端可刷新」。
- * 与 pi-agent-core 逻辑对齐：支持 getSteeringMessages（每轮初或每次工具后注入）、getFollowUpMessages（无 toolCalls 时继续）。
+ * 带工具执行的一轮，且支持流式回调：onTextChunk(text) 每段文本、onToolCall(call) 每收到一个完整 tool_call 时调用；
+ * onProgress(roundMessages) 在每轮工具执行完后调用，便于上层写 transcript / 推前端。
+ * 与 pi-agent-core 逻辑对齐：支持 getSteeringMessages、getFollowUpMessages。
  */
 export async function runAgentTurnWithToolsStreaming(
 	state: AgentState,
@@ -148,6 +148,7 @@ export async function runAgentTurnWithToolsStreaming(
 	executeTool: ToolExecutor,
 	signal?: AbortSignal,
 	onTextChunk?: (text: string) => void,
+	onToolCall?: (call: import("@monou/agent-core").ToolCall) => void,
 	onProgress?: (roundMessages: import("@monou/agent-core").AgentMessage[]) => void | Promise<void>,
 ): Promise<AgentRunResult> {
 	let currentState = appendUserMessage(state, userInput);
@@ -168,7 +169,7 @@ export async function runAgentTurnWithToolsStreaming(
 			}
 		}
 
-		const result = await runOneTurnStreaming(currentState, config, streamFn, signal, onTextChunk);
+		const result = await runOneTurnStreaming(currentState, config, streamFn, signal, onTextChunk, onToolCall);
 		lastText = result.text;
 		allToolCalls = [...allToolCalls, ...result.toolCalls];
 

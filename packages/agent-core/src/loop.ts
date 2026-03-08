@@ -29,7 +29,7 @@ export async function runOneTurn(
 }
 
 /**
- * Run one assistant turn with optional streaming callback: onTextChunk(text) is called for each text delta.
+ * Run one assistant turn with optional streaming callbacks: onTextChunk(text) for each text delta, onToolCall(call) when a tool call is received.
  */
 export async function runOneTurnStreaming(
 	state: AgentState,
@@ -37,6 +37,7 @@ export async function runOneTurnStreaming(
 	streamFn: StreamFn,
 	signal?: AbortSignal,
 	onTextChunk?: (text: string) => void,
+	onToolCall?: (call: ToolCall) => void,
 ): Promise<{
 	state: AgentState;
 	text: string;
@@ -58,7 +59,10 @@ export async function runOneTurnStreaming(
 			text += chunk.text;
 			onTextChunk?.(chunk.text);
 		}
-		if (chunk.type === "tool_call") allToolCalls.push(chunk.call);
+		if (chunk.type === "tool_call") {
+			onToolCall?.(chunk.call);
+			allToolCalls.push(chunk.call);
+		}
 	}
 
 	if (text || allToolCalls.length > 0) {
