@@ -1,23 +1,10 @@
 #!/usr/bin/env bash
-# Start agent-client and connect to the Gateway, making the agent visible in Control UI.
-# Confirm the Gateway address before running (see references/gateway-connect.md).
-# If GATEWAY_URL is not set, the script tries GATEWAY_WS_URL from MONOU_ROOT/.env,
-# then falls back to ws://127.0.0.1:9347.
-#
+# Start agent-client and connect to Gateway.
 # Usage:
-#   GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=my_agent AGENT_DIR=/path/to/agent ./start-agent-client.sh
-#
-# Environment variables:
-#   GATEWAY_URL       Gateway WebSocket address (falls back to GATEWAY_WS_URL or ws://127.0.0.1:9347).
-#   AGENT_ID          Agent ID to register with the Gateway (required).
-#   AGENT_DIR         Absolute path to the agent directory — same structure as .first_paramecium (required).
-#   DEVICE_ID         Optional. Defaults to hostname. Agents sharing a DEVICE_ID are grouped as one
-#                     device node in the topology view. Set DEVICE_ID=$AGENT_ID for one node per agent.
-#   MONOU_ROOT        monoU repo root; auto-detected from script location if not set.
-#   GATEWAY_TOKEN /
-#   GATEWAY_PASSWORD  Optional Gateway authentication.
+#   GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=my_agent AGENT_DIR=/abs/path \
+#   .first_paramecium/skills/agent-creator/scripts/start-agent-client.sh
 
-set -e
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATEWAY_URL="${GATEWAY_URL:-}"
 AGENT_ID="${AGENT_ID:-}"
@@ -26,8 +13,7 @@ DEVICE_ID="${DEVICE_ID:-$(hostname 2>/dev/null || echo 'local')}"
 MONOU_ROOT="${MONOU_ROOT:-}"
 
 if [ -z "$AGENT_ID" ] || [ -z "$AGENT_DIR" ]; then
-  echo "Usage: GATEWAY_URL=ws://... AGENT_ID=<id> AGENT_DIR=<absolute-path> $0" >&2
-  echo "  GATEWAY_URL defaults to GATEWAY_WS_URL from .env or ws://127.0.0.1:9347" >&2
+  echo "AGENT_ID and AGENT_DIR are required." >&2
   exit 1
 fi
 
@@ -51,20 +37,21 @@ if [ -z "$GATEWAY_URL" ]; then
   fi
   GATEWAY_URL="${GATEWAY_URL:-$GATEWAY_WS_URL}"
   GATEWAY_URL="${GATEWAY_URL:-ws://127.0.0.1:9347}"
-  echo "GATEWAY_URL not set; using: $GATEWAY_URL (set GATEWAY_WS_URL in .env to change the default)" >&2
+  echo "[agent-creator] GATEWAY_URL not set; using: $GATEWAY_URL" >&2
 fi
 
 if [ -z "$MONOU_ROOT" ] || [ ! -d "$MONOU_ROOT" ]; then
-  echo "MONOU_ROOT not found. Set MONOU_ROOT to the monoU repo root." >&2
+  echo "MONOU_ROOT not found." >&2
   exit 1
 fi
 
 CLIENT_JS="$MONOU_ROOT/apps/gateway/dist/agent-client.js"
 if [ ! -f "$CLIENT_JS" ]; then
   echo "agent-client not found: $CLIENT_JS" >&2
-  echo "Run 'npm run build' in the monoU root first." >&2
+  echo "Run npm run build first." >&2
   exit 1
 fi
 
 export GATEWAY_URL AGENT_ID AGENT_DIR DEVICE_ID
+echo "[agent-creator] start agent-client: AGENT_ID=$AGENT_ID AGENT_DIR=$AGENT_DIR GATEWAY_URL=$GATEWAY_URL"
 exec node "$CLIENT_JS"

@@ -53,7 +53,9 @@ export async function buildSessionFromU(
 				? ensureAgentDir({ agentDir: opts.agentDir })
 				: ensureAgentDir({ rootDir });
 	console.info(`${LOG_PREFIX} buildSessionFromU agentDir=${agentDir}`);
-	const baseSkillDirs = getAgentSkillDirs(agentDir, { asAgentDir: true });
+	const baseSkillDirs = getAgentSkillDirs(agentDir, { asAgentDir: true }).filter((d) =>
+		existsSync(path.join(d, "SKILL.md")),
+	);
 	const skillsRoot = path.join(agentDir, "skills");
 	const discovered = existsSync(skillsRoot)
 		? readdirSync(skillsRoot, { withFileTypes: true })
@@ -90,27 +92,35 @@ export async function buildSessionFromU(
 			return noopSkill();
 		}
 	};
+	const skillModuleCache = new Map<string, Promise<{ tools: AgentTool[]; executeTool: SkillExecuteTool }>>();
+	const loadSkillModuleByDir = (skillDir: string): Promise<{ tools: AgentTool[]; executeTool: SkillExecuteTool }> => {
+		const key = path.resolve(skillDir);
+		const cached = skillModuleCache.get(key);
+		if (cached) return cached;
+		const p = loadSkillModule(toolsPathFromSkillDir(key));
+		skillModuleCache.set(key, p);
+		return p;
+	};
 
 	/** 按 skillDirs 顺序动态加载所有带 scripts/tools.js 或 tools.ts 的 skill */
-	const loadedSkills: { skillName: string; skillDir: string; tools: AgentTool[]; executeTool: SkillExecuteTool }[] = [];
+	const loadedSkills: { skillName: string; skillDir: string; tools: AgentTool[] }[] = [];
+	const toolToSkill = new Map<string, { skillName: string; skillDir: string }>();
+	const skillNameToDir = new Map<string, string>();
 	for (const skillDir of skillDirs) {
 		const skillName = path.basename(skillDir);
-		const scriptPath = toolsPathFromSkillDir(skillDir);
-		if (!scriptPath) continue;
-		const mod = await loadSkillModule(scriptPath);
-		loadedSkills.push({ skillName, skillDir, tools: mod.tools, executeTool: mod.executeTool });
-	}
-	console.info(`${LOG_PREFIX} 动态加载 skills: ${loadedSkills.map((s) => s.skillName).join(", ") || "(无)"}`);
-
-	const toolToHandler = new Map<string, { executeTool: SkillExecuteTool; skillName: string }>();
-	for (const skill of loadedSkills) {
-		for (const t of skill.tools) {
-			toolToHandler.set(t.name, { executeTool: skill.executeTool, skillName: skill.skillName });
+		skillNameToDir.set(skillName, skillDir);
+		const mod = await loadSkillModuleByDir(skillDir);
+		if (mod.tools.length === 0) continue;
+		loadedSkills.push({ skillName, skillDir, tools: mod.tools });
+		for (const t of mod.tools) {
+			toolToSkill.set(t.name, { skillName, skillDir });
 		}
 	}
-	const baseSkill = loadedSkills.find((s) => s.skillName === "base_skill");
-	const baseSkillExecuteTool = baseSkill?.executeTool ?? noopSkill().executeTool;
-	const knowledgeSkill = loadedSkills.find((s) => s.skillName === "knowledge");
+	console.info(`${LOG_PREFIX} skills(提示词): ${skillDirs.map((d) => path.basename(d)).join(", ") || "(无)"}`);
+	console.info(`${LOG_PREFIX} skills(动态加载tools): ${loadedSkills.map((s) => s.skillName).join(", ") || "(无)"}`);
+
+	const baseSkillDir = skillNameToDir.get("base_skill");
+	const knowledgeSkillDir = skillNameToDir.get("knowledge");
 
 	const { tools: scriptTools, entries: scriptEntries } = loadSkillScriptTools(skillDirs, {
 		excludeDirNames: loadedSkills.map((s) => s.skillName),
@@ -118,8 +128,7 @@ export async function buildSessionFromU(
 	const executeSkillScript = createSkillScriptExecutor(scriptEntries);
 
 	const knowledgeTopicTools: AgentTool[] = [];
-	const knowledgeTopicByToolName = new Map<string, string>();
-	if (existsSync(skillsRoot) && knowledgeSkill) {
+	if (existsSync(skillsRoot) && knowledgeSkillDir) {
 		const dirs = readdirSync(skillsRoot, { withFileTypes: true });
 		for (const d of dirs) {
 			if (!d.isDirectory() || !d.name.endsWith("_knowledge")) continue;
@@ -149,16 +158,7 @@ export async function buildSessionFromU(
 					required: ["query"],
 				},
 			});
-			knowledgeTopicByToolName.set(toolName, topic);
-			toolToHandler.set(toolName, {
-				skillName: "knowledge",
-				executeTool: async (_name, args) =>
-					knowledgeSkill.executeTool("knowledge_search", {
-						query: args?.query,
-						topic,
-						maxResults: args?.maxResults,
-					}),
-			});
+			toolToSkill.set(toolName, { skillName: "knowledge", skillDir: knowledgeSkillDir });
 		}
 	}
 
@@ -176,10 +176,25 @@ export async function buildSessionFromU(
 		name: string,
 		args: Record<string, unknown>,
 	): Promise<{ content: string; isError?: boolean }> {
-		const handler = toolToHandler.get(name);
-		if (handler) return handler.executeTool(name, args, gatewayInvoke);
+		const skill = toolToSkill.get(name);
+		if (skill) {
+			const mod = await loadSkillModuleByDir(skill.skillDir);
+			if (skill.skillName === "knowledge" && name.endsWith("_knowledge_search")) {
+				const topic = name.slice(0, -"_knowledge_search".length);
+				return mod.executeTool("knowledge_search", {
+					query: args?.query,
+					topic,
+					maxResults: args?.maxResults,
+				}, gatewayInvoke);
+			}
+			return mod.executeTool(name, args, gatewayInvoke);
+		}
 		if (scriptToolNames.has(name)) return executeSkillScript(name, args);
-		return baseSkillExecuteTool(name, args, gatewayInvoke);
+		if (baseSkillDir) {
+			const base = await loadSkillModuleByDir(baseSkillDir);
+			return base.executeTool(name, args, gatewayInvoke);
+		}
+		return noopSkill().executeTool(name, args, gatewayInvoke);
 	}
 	console.info(`${LOG_PREFIX} buildSessionFromU 完成 agentDir=${agentDir} skillDirs=${skillDirs.length} tools=${mergedTools.length}`);
 	return { agentDir, skillDirs, mergedTools, executeTool };

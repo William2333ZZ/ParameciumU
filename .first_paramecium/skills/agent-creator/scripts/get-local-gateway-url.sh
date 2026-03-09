@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# Print the local machine's LAN IP and the GATEWAY_URL a remote machine should use
-# to connect to the local Gateway.
-#
-# Usage: ./get-local-gateway-url.sh [port]
-# Port defaults to 9347 (matches npm run gateway default).
-# Can also be set via the GATEWAY_PORT environment variable.
+# Print a reachable local Gateway URL for remote hosts.
+# Usage: get-local-gateway-url.sh [port]
 
 PORT="${1:-${GATEWAY_PORT:-9347}}"
 IP=""
@@ -23,10 +19,7 @@ if [ -z "$IP" ]; then
   IP="<your-local-IP>"
 fi
 
-echo "Local LAN IP  : $IP"
-echo "Gateway port  : $PORT"
-echo "Remote should use:"
-echo "  GATEWAY_URL=ws://${IP}:${PORT}"
-echo ""
-echo "Note: start the Gateway bound to all interfaces so the remote can connect:"
+echo "LAN_IP=$IP"
+echo "GATEWAY_URL=ws://${IP}:${PORT}"
+echo "Gateway should listen on all interfaces for remote access:"
 echo "  GATEWAY_HOST=0.0.0.0 GATEWAY_PORT=${PORT} npm run gateway"

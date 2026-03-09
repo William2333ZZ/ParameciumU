@@ -20,6 +20,22 @@ function skillNameToToolName(dirPath: string): string {
 	return basename(dirPath).replace(/-/g, "_");
 }
 
+function getSkillFrontmatterValue(skillDir: string, key: string): string | null {
+	const skillPath = join(skillDir, "SKILL.md");
+	if (!existsSync(skillPath)) return null;
+	try {
+		const raw = readFileSync(skillPath, "utf-8");
+		const fm = raw.match(/^---\s*\n([\s\S]*?)\n---/m)?.[1];
+		if (!fm) return null;
+		const re = new RegExp(`^\\s*${key}\\s*:\\s*(.+?)\\s*$`, "m");
+		const v = fm.match(re)?.[1]?.trim();
+		if (!v) return null;
+		return v.replace(/^["']|["']$/g, "");
+	} catch {
+		return null;
+	}
+}
+
 function getDescriptionFromSkill(skillDir: string): string {
 	const skillPath = join(skillDir, "SKILL.md");
 	if (!existsSync(skillPath)) return "运行该 skill 的脚本，传入 path 参数。";
@@ -50,9 +66,19 @@ export function loadSkillScriptTools(
 
 		const files = readdirSync(scriptsDir);
 		const scripts = files.filter((f) => SCRIPT_EXT.some((e) => f.endsWith(e)));
-		if (scripts.length !== 1) continue;
+		if (scripts.length === 0) continue;
+		const declaredEntry = getSkillFrontmatterValue(dir, "entryScript");
+		// 兼容多脚本 skill（如 agent-creator）：优先选择约定入口脚本
+		const entryScript =
+			declaredEntry && scripts.includes(basename(declaredEntry))
+				? basename(declaredEntry)
+				:
+			scripts.length === 1
+				? scripts[0]
+				: scripts.find((s) => s === "create-and-connect.sh");
+		if (!entryScript) continue;
 
-		const scriptName = scripts[0];
+		const scriptName = entryScript;
 		const scriptPath = join(scriptsDir, scriptName);
 		const name = skillNameToToolName(dir);
 		const description = getDescriptionFromSkill(dir);

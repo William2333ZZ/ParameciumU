@@ -100,8 +100,8 @@ const HEARTBEAT_MD_FILENAME = "HEARTBEAT.md";
 const _onlineG = (process.env.AGENT_ONLINE_GREETING ?? "1").trim();
 const onlineGreetingEnabled = _onlineG !== "0" && _onlineG.toLowerCase() !== "false";
 const onlineGreetingMessage =
-	(process.env.AGENT_ONLINE_GREETING_MESSAGE ?? "请简单汇报当前状态或打招呼。（你刚上线）").trim() ||
-	"请简单汇报当前状态或打招呼。（你刚上线）";
+	(process.env.AGENT_ONLINE_GREETING_MESSAGE ?? "请打个招呼。（你刚上线）").trim() ||
+	"请打个招呼。（你刚上线）";
 /** 上线问候是否已发送（与 agent-client 一致，只发一次） */
 let onlineGreetingSent = false;
 

@@ -1,27 +1,7 @@
 #!/usr/bin/env bash
-# Start agent-client on a remote Windows machine using a scheduled task,
-# so the process survives SSH disconnection.
-#
-# Usage:
-#   REMOTE_USER=<user> REMOTE_HOST=<host> \
-#   AGENT_ID=<agent_id> \
-#   GATEWAY_URL=ws://<local-address>:9347 \
-#   REMOTE_MONOU='C:\Users\<username>\monoU' \
-#   [SSHPASS=<password>] [KILL_FIRST=1] \
-#   "$AGENT_DIR/skills/agent-creator/scripts/start-remote-windows-agent.sh"
-#
-# Environment variables:
-#   REMOTE_USER        Remote SSH username (required).
-#   REMOTE_HOST        Remote IP or hostname (required).
-#   AGENT_ID           Agent ID, e.g. win_agent (required).
-#   GATEWAY_URL        Gateway WebSocket address (required).
-#   REMOTE_MONOU       Windows absolute path to monoU on the remote,
-#                      e.g. C:\Users\<username>\monoU (required).
-#   REMOTE_AGENT_DIR   Remote agent dir; defaults to REMOTE_MONOU\agents\AGENT_ID.
-#   SSHPASS            Optional SSH password (requires sshpass on local machine).
-#   KILL_FIRST         Set to 1 to kill any existing node.exe before starting.
+# Start a remote Windows agent via Scheduled Task (survives SSH disconnect).
 
-set -e
+set -euo pipefail
 REMOTE_USER="${REMOTE_USER:-}"
 REMOTE_HOST="${REMOTE_HOST:-}"
 AGENT_ID="${AGENT_ID:-}"
@@ -31,9 +11,7 @@ REMOTE_AGENT_DIR="${REMOTE_AGENT_DIR:-}"
 KILL_FIRST="${KILL_FIRST:-0}"
 
 if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_HOST" ] || [ -z "$AGENT_ID" ] || [ -z "$GATEWAY_URL" ] || [ -z "$REMOTE_MONOU" ]; then
-  echo "Usage: REMOTE_USER=... REMOTE_HOST=... AGENT_ID=... GATEWAY_URL=... REMOTE_MONOU=... $0" >&2
-  echo "  REMOTE_MONOU: Windows absolute path to monoU on the remote, e.g. C:\\Users\\<username>\\monoU" >&2
-  echo "  Optional: REMOTE_AGENT_DIR=... SSHPASS=... KILL_FIRST=1" >&2
+  echo "Required: REMOTE_USER REMOTE_HOST AGENT_ID GATEWAY_URL REMOTE_MONOU" >&2
   exit 1
 fi
 
@@ -90,19 +68,19 @@ run_scp() {
 
 export SSHPASS
 
-echo "Uploading .bat to remote ${REMOTE_MONOU_SCP}/..."
+echo "[agent-creator] uploading .bat to remote ${REMOTE_MONOU_SCP}/..."
 run_scp "$BAT_PATH" "${REMOTE_MONOU_SCP}/${BAT_NAME}"
 
 WIN_BAT_TR="${REMOTE_MONOU}\\${BAT_NAME}"
-echo "Creating/updating scheduled task ${TASK_NAME}..."
+echo "[agent-creator] creating/updating scheduled task ${TASK_NAME}..."
 run_ssh "schtasks /create /tn \"${TASK_NAME}\" /tr \"${WIN_BAT_TR}\" /sc once /st 23:59 /sd 2030/01/01 /f"
 
 if [ "$KILL_FIRST" = "1" ]; then
-  echo "Killing existing node.exe on remote..."
+  echo "[agent-creator] killing existing node.exe on remote..."
   run_ssh "taskkill /F /IM node.exe 2>nul" || true
 fi
 
-echo "Triggering scheduled task..."
+echo "[agent-creator] triggering scheduled task..."
 run_ssh "schtasks /run /tn \"${TASK_NAME}\""
-echo "Done. The agent should connect to the Gateway within a few seconds. Refresh the node list in Control UI."
+echo "[agent-creator] done. Refresh Control UI node list."
 rm -f "$BAT_PATH"

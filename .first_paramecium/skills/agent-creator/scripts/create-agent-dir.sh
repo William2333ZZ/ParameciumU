@@ -1,25 +1,19 @@
 #!/usr/bin/env bash
-# Create a new agent directory with the same structure as .first_paramecium.
-# Copies SOUL.md, IDENTITY.md, cron/jobs.json, and selected skills from the
-# agent-template package (or .first_paramecium as fallback).
+# Create a new agent directory from template/current agent source.
 #
 # Usage:
-#   AGENT_DIR=/path/to/new_agent MONOU_ROOT=/path/to/monoU [FROM_TEMPLATE=1] ./create-agent-dir.sh
-#
-# Environment variables:
-#   AGENT_DIR      Absolute path for the new agent directory (required).
-#   MONOU_ROOT     monoU repo root; auto-detected from script location if not set.
-#   FROM_TEMPLATE  If 1 (default), copy from packages/agent-template/template;
-#                  otherwise fall back to .first_paramecium.
-#   SKILLS         Space-separated skill names to copy, e.g. "base_skill memory cron".
-#                  If empty, copies all skills from the source.
+#   AGENT_DIR=/abs/path/to/agents/my_agent MONOU_ROOT=/path/to/monoU \
+#   [FROM_TEMPLATE=1] [SKILLS="base_skill memory cron"] \
+#   .first_paramecium/skills/agent-creator/scripts/create-agent-dir.sh
 
-set -e
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_DIR="${AGENT_DIR:-}"
 MONOU_ROOT="${MONOU_ROOT:-}"
 FROM_TEMPLATE="${FROM_TEMPLATE:-1}"
 SKILLS="${SKILLS:-}"
+CURRENT_AGENT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 if [ -z "$AGENT_DIR" ]; then
   echo "AGENT_DIR is required." >&2
@@ -29,18 +23,18 @@ fi
 if [ -z "$MONOU_ROOT" ]; then
   d="$SCRIPT_DIR"
   while [ -n "$d" ] && [ "$d" != "/" ]; do
-    [ -f "$d/package.json" ] && [ -d "$d/apps/gateway" ] && MONOU_ROOT="$d" && break
+    if [ -f "$d/package.json" ] && [ -d "$d/apps/gateway" ]; then
+      MONOU_ROOT="$d"
+      break
+    fi
     d="$(dirname "$d")"
   done
 fi
+
 if [ -z "$MONOU_ROOT" ] || [ ! -d "$MONOU_ROOT" ]; then
-  echo "MONOU_ROOT not set or invalid." >&2
+  echo "Failed to locate MONOU_ROOT." >&2
   exit 1
 fi
-
-mkdir -p "$AGENT_DIR"
-mkdir -p "$AGENT_DIR/cron"
-mkdir -p "$AGENT_DIR/skills"
 
 if [ "$FROM_TEMPLATE" = "1" ] && [ -d "$MONOU_ROOT/packages/agent-template/template" ]; then
   SRC="$MONOU_ROOT/packages/agent-template/template"
@@ -53,34 +47,47 @@ if [ ! -d "$SRC" ]; then
   exit 1
 fi
 
-# Copy SOUL.md and IDENTITY.md
-for f in SOUL.md IDENTITY.md; do
+mkdir -p "$AGENT_DIR/cron" "$AGENT_DIR/skills"
+
+for f in SOUL.md IDENTITY.md KNOWLEDGE.md MEMORY.md; do
   if [ -f "$SRC/$f" ]; then
     cp "$SRC/$f" "$AGENT_DIR/$f"
-    echo "Copied $f"
   fi
 done
 
-# Sessions are managed by the Gateway (.gateway/sessions/); no chat.json needed in the agent dir.
-# Copy cron/jobs.json (create empty if not present in source)
+if [ -f "$SRC/llm.json" ]; then
+  cp "$SRC/llm.json" "$AGENT_DIR/llm.json"
+elif [ -f "$CURRENT_AGENT_DIR/llm.json" ]; then
+  # 模板通常只有 llm.json.example；优先继承当前运行 agent 的 llm.json，避免新 agent 因缺 apiKey 无法启动
+  cp "$CURRENT_AGENT_DIR/llm.json" "$AGENT_DIR/llm.json"
+elif [ -f "$SRC/llm.json.example" ]; then
+  cp "$SRC/llm.json.example" "$AGENT_DIR/llm.json.example"
+fi
+
 if [ -f "$SRC/cron/jobs.json" ]; then
-  cp "$SRC/cron/jobs.json" "$AGENT_DIR/cron/"
+  cp "$SRC/cron/jobs.json" "$AGENT_DIR/cron/jobs.json"
 else
   echo '{"version":1,"jobs":[]}' > "$AGENT_DIR/cron/jobs.json"
 fi
 
-# Copy skills
 if [ -n "$SKILLS" ]; then
   for s in $SKILLS; do
     if [ -d "$SRC/skills/$s" ]; then
+      rm -rf "$AGENT_DIR/skills/$s"
       cp -R "$SRC/skills/$s" "$AGENT_DIR/skills/"
       echo "Copied skill: $s"
+    else
+      echo "Skip missing skill: $s" >&2
     fi
   done
 else
   if [ -d "$SRC/skills" ]; then
     for s in "$SRC/skills"/*; do
-      [ -d "$s" ] && cp -R "$s" "$AGENT_DIR/skills/" && echo "Copied skill: $(basename "$s")"
+      [ -d "$s" ] || continue
+      bn="$(basename "$s")"
+      rm -rf "$AGENT_DIR/skills/$bn"
+      cp -R "$s" "$AGENT_DIR/skills/"
+      echo "Copied skill: $bn"
     done
   fi
 fi
