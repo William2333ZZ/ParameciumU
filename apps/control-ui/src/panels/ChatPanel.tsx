@@ -737,7 +737,19 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
       const reader = new FileReader();
       reader.onload = () => {
         const data = reader.result as string;
-        const base64 = data.indexOf("base64,") >= 0 ? data.split("base64,")[1]! : btoa(unescape(encodeURIComponent(data)));
+        const marker = "base64,";
+        const idx = typeof data === "string" ? data.indexOf(marker) : -1;
+        if (idx < 0) {
+          setUploadErr("文件编码失败：未识别到 base64 数据");
+          setUploadLoading(false);
+          return;
+        }
+        const base64 = data.slice(idx + marker.length).trim();
+        if (!base64) {
+          setUploadErr("文件编码失败：内容为空");
+          setUploadLoading(false);
+          return;
+        }
         gatewayClient
           .request<{ path?: string }>("file.upload", { agentId, filename: file.name, content: base64 })
           .then((res) => {
@@ -749,6 +761,10 @@ export function ChatPanel({ initialAgentId, initialSessionKey }: Props) {
           })
           .catch((err) => setUploadErr((err as Error).message))
           .finally(() => setUploadLoading(false));
+      };
+      reader.onerror = () => {
+        setUploadErr("文件读取失败");
+        setUploadLoading(false);
       };
       reader.readAsDataURL(file);
     },

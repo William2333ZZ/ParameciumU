@@ -24,6 +24,14 @@ function safeBasename(name: string): string {
 	return base.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 200) || "upload";
 }
 
+function normalizeBase64Content(raw: string): string {
+	const s = (raw ?? "").trim();
+	const marker = ";base64,";
+	const i = s.indexOf(marker);
+	if (i >= 0) return s.slice(i + marker.length).trim();
+	return s;
+}
+
 async function handleFileUpload(
 	payload: { id?: string; filename?: string; content?: string },
 	send: (obj: object) => void,
@@ -40,7 +48,13 @@ async function handleFileUpload(
 		const base = safeBasename(filename);
 		const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${base}`;
 		const filePath = path.join(UAGENT_TMP, unique);
-		const buf = Buffer.from(content, "base64");
+		const base64 = normalizeBase64Content(content);
+		// 简单兜底：空串允许写空文件；非空但明显非 base64 时返回错误，避免生成损坏文件
+		if (base64 && !/^[A-Za-z0-9+/=\r\n_-]+$/.test(base64)) {
+			throw new Error("Invalid base64 content");
+		}
+		const normalized = base64.replace(/-/g, "+").replace(/_/g, "/");
+		const buf = Buffer.from(normalized, "base64");
 		await fs.writeFile(filePath, buf);
 		send({ method: "agent.file.upload.result", params: { id, path: filePath } });
 	} catch (e) {

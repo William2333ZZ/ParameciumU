@@ -7,7 +7,7 @@
       "description": "Periodic learning/report (heartbeat). Set deliver to push to a connector.",
       "enabled": true,
       "createdAtMs": 1772434404518,
-      "updatedAtMs": 1773035604523,
+      "updatedAtMs": 1773046404524,
       "schedule": {
         "kind": "every",
         "everyMs": 1800000,
@@ -18,8 +18,8 @@
         "message": "请根据 HEARTBEAT.md（若存在）或你的当前目标，简要汇报思考与进展；不要复述旧对话内容。若无事需汇报则回复 HEARTBEAT_OK."
       },
       "state": {
-        "nextRunAtMs": 1773037404518,
-        "lastRunAtMs": 1773035604523,
+        "nextRunAtMs": 1773048204518,
+        "lastRunAtMs": 1773046404524,
         "lastStatus": "ok"
       }
     }

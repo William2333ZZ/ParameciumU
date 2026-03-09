@@ -124,7 +124,7 @@ function buildToAppendFromRemoteResult(
 }
 
 /**
- * 追加一条 user 消息：若 transcript 当前叶节点已是同内容 user 则跳过；若路径末尾已是「同内容 user -> assistant」也跳过，避免同一句招呼被 invoke 两次。
+ * 追加一条 user 消息：若 transcript 当前叶节点已是同内容 user 则跳过（并发/重复点击防护）。
  * 当 parentLeafId 为 null 时用文件中最后一条 message 的 id 作为有效叶节点。
  * 返回 { leafId, appended }；appended 为 false 时调用方不应再 invoke agent。
  */
@@ -136,17 +136,8 @@ function appendUserOnceIfNotDuplicate(
 	const realLeafId = parentLeafId ?? getLastMessageIdInTranscript(transcriptPath) ?? null;
 	const current = loadTranscript(transcriptPath, realLeafId ?? undefined);
 	const last = current[current.length - 1];
-	const prev = current.length >= 2 ? current[current.length - 2] : undefined;
 	const trimmed = (userContent ?? "").trim();
 	if (last?.role === "user" && (last.content ?? "").trim() === trimmed) {
-		return { leafId: realLeafId ?? "", appended: false };
-	}
-	// 路径末尾已是「同内容 user -> assistant」时不再追加，避免重复 invoke（招呼被发两次时只回复一次）
-	if (
-		last?.role === "assistant" &&
-		prev?.role === "user" &&
-		(prev.content ?? "").trim() === trimmed
-	) {
 		return { leafId: realLeafId ?? "", appended: false };
 	}
 	// 并发防护：若当前是「从根追加」，追加前再读一次叶节点，避免两请求同时看到空 transcript 各写一条 user
@@ -1553,11 +1544,12 @@ export function createHandlers(ctx: HandlersContext) {
 			if (!entry || entry.ws.readyState !== 1) {
 				return fail(err(503, `agent ${agentId} connection not ready`));
 			}
-			const id = nextInvokeId();
+			const id = String(nextInvokeId());
+			const uploadTimeoutMs = Math.max(30_000, ctx.agentResponseTimeoutMs ?? 120_000);
 			return new Promise<GatewayResponse>((resolve, reject) => {
 				const timeout = setTimeout(() => {
 					if (pendingFileUploads.delete(id)) resolve(fail(err(504, "file.upload timeout")));
-				}, 30_000);
+				}, uploadTimeoutMs);
 				pendingFileUploads.set(id, {
 					resolve: (v: unknown) => {
 						clearTimeout(timeout);
@@ -1570,7 +1562,12 @@ export function createHandlers(ctx: HandlersContext) {
 						resolve(fail(err(500, e.message)));
 					},
 				});
-				entry!.ws.send(JSON.stringify({ event: "agent.file.upload", payload: { id, filename, content } }));
+				entry!.ws.send(JSON.stringify({ event: "agent.file.upload", payload: { id, filename, content } }), (e) => {
+					if (!e) return;
+					clearTimeout(timeout);
+					pendingFileUploads.delete(id);
+					resolve(fail(err(503, `file.upload send failed: ${e.message}`)));
+				});
 			});
 		},
 
