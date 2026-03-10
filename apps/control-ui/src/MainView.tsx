@@ -7,6 +7,7 @@ import { CreateGroupPanel } from "./panels/CreateGroupPanel";
 import { ContactsPanel } from "./panels/ContactsPanel";
 import { CapabilitiesPanel } from "./panels/CapabilitiesPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
+import { AgentStatusPanel } from "./panels/AgentStatusPanel";
 
 export type TabId = "chat" | "contacts" | "capabilities" | "settings";
 
@@ -54,6 +55,7 @@ export function MainView({ onDisconnect }: Props) {
           <span className="status-dot" title="已连接" />
           <span className="sidebar-title">ParameciumU</span>
         </div>
+        <AgentStatusPanel />
         <nav className="sidebar-nav">
           {NAV.map(({ id, label }) => (
             <button

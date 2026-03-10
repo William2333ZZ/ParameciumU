@@ -32,7 +32,7 @@ if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_HOST" ] || [ -z "$REMOTE_PATH" ]; then
 fi
 
 EXCLUDES="--exclude node_modules --exclude .git --exclude dist"
-for x in $RSYNC_EXCLUDE; do EXCLUDES="$EXCLUDES --exclude $x"; done
+for x in ${RSYNC_EXCLUDE:-}; do EXCLUDES="$EXCLUDES --exclude $x"; done
 
 echo "[agent-creator] syncing $MONOU_ROOT -> $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH"
 rsync -avz $EXCLUDES "$MONOU_ROOT/" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/"

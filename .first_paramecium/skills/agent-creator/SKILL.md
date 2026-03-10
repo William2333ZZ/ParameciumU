@@ -6,7 +6,7 @@ entryScript: scripts/create-and-connect.sh
 
 # Agent Creator
 
-Create a new agent directory under `agents/<agent_id>/`, then start `agent-client` so it appears in Control UI.
+Create a new agent directory under `agents/<agent_id>/`, then start the agent app so it appears in Control UI.
 
 ## Use This Skill When
 
@@ -28,7 +28,7 @@ This will:
 
 1. Create `agents/<agent_id>/`
 2. Copy base files/skills
-3. Start `agent-client` in background
+3. Start the agent app in background
 
 ## Controlled Path (Local, custom persona/skills)
 
@@ -77,7 +77,7 @@ If remote is Windows and you need persistence after SSH disconnect, use:
 
 - `scripts/create-and-connect.sh` — one-command local flow
 - `scripts/create-agent-dir.sh` — create directory only
-- `scripts/start-agent-client.sh` — start client only
+- `scripts/start-agent-client.sh` — start agent app only
 - `scripts/deploy-to-remote.sh` — sync repo to remote
 - `scripts/get-local-gateway-url.sh` — print reachable Gateway URL
 - `scripts/start-remote-windows-agent.sh` — Windows scheduled-task startup

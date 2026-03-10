@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start agent-client and connect to Gateway.
+# Start agent app and connect to Gateway.
 # Usage:
 #   GATEWAY_URL=ws://127.0.0.1:9347 AGENT_ID=my_agent AGENT_DIR=/abs/path \
 #   .first_paramecium/skills/agent-creator/scripts/start-agent-client.sh
@@ -45,13 +45,12 @@ if [ -z "$MONOU_ROOT" ] || [ ! -d "$MONOU_ROOT" ]; then
   exit 1
 fi
 
-CLIENT_JS="$MONOU_ROOT/apps/gateway/dist/agent-client.js"
+CLIENT_JS="$MONOU_ROOT/apps/agent/dist/index.js"
 if [ ! -f "$CLIENT_JS" ]; then
-  echo "agent-client not found: $CLIENT_JS" >&2
-  echo "Run npm run build first." >&2
-  exit 1
+  echo "[agent-creator] agent app not built, building @monou/agent..." >&2
+  (cd "$MONOU_ROOT" && npm run build --workspace=@monou/agent)
 fi
 
 export GATEWAY_URL AGENT_ID AGENT_DIR DEVICE_ID
-echo "[agent-creator] start agent-client: AGENT_ID=$AGENT_ID AGENT_DIR=$AGENT_DIR GATEWAY_URL=$GATEWAY_URL"
+echo "[agent-creator] start agent app: AGENT_ID=$AGENT_ID AGENT_DIR=$AGENT_DIR GATEWAY_URL=$GATEWAY_URL"
 exec node "$CLIENT_JS"

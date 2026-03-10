@@ -26,4 +26,4 @@ ws://127.0.0.1:9347
 
 ## Authentication
 
-If enabled, pass `GATEWAY_TOKEN` or `GATEWAY_PASSWORD` when launching `agent-client`.
+If enabled, pass `GATEWAY_TOKEN` or `GATEWAY_PASSWORD` when launching the agent app.

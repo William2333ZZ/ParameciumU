@@ -20,7 +20,7 @@ ssh <user>@<host> "cd ~/monoU && \
   GATEWAY_URL=ws://<reachable-host>:9347 \
   AGENT_ID=<agent_id> \
   AGENT_DIR=$(pwd)/agents/<agent_id> \
-  node apps/gateway/dist/agent-client.js"
+  node apps/agent/dist/index.js"
 ```
 
 See [gateway-connect.md](gateway-connect.md) for URL selection.

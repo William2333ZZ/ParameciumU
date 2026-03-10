@@ -9,6 +9,7 @@ GATEWAY_URL="${GATEWAY_URL:-}"
 REMOTE_MONOU="${REMOTE_MONOU:-}"
 REMOTE_AGENT_DIR="${REMOTE_AGENT_DIR:-}"
 KILL_FIRST="${KILL_FIRST:-0}"
+SSHPASS="${SSHPASS:-}"
 
 if [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_HOST" ] || [ -z "$AGENT_ID" ] || [ -z "$GATEWAY_URL" ] || [ -z "$REMOTE_MONOU" ]; then
   echo "Required: REMOTE_USER REMOTE_HOST AGENT_ID GATEWAY_URL REMOTE_MONOU" >&2
@@ -46,7 +47,7 @@ cd /d ${REMOTE_MONOU}
 set GATEWAY_URL=${GATEWAY_URL}
 set AGENT_ID=${AGENT_ID}
 set AGENT_DIR=${REMOTE_AGENT_DIR}
-node apps\\gateway\\dist\\agent-client.js
+node apps\\agent\\dist\\index.js
 EOF
 echo "Generated .bat: $BAT_PATH"
 

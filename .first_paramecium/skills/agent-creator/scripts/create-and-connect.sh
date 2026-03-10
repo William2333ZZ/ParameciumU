@@ -54,15 +54,15 @@ if [ ! -f "$AGENT_DIR/llm.json" ] && [ -f "$MONOU_ROOT/.first_paramecium/llm.jso
   cp "$MONOU_ROOT/.first_paramecium/llm.json" "$AGENT_DIR/llm.json"
 fi
 
-CLIENT_JS="$MONOU_ROOT/apps/gateway/dist/agent-client.js"
+CLIENT_JS="$MONOU_ROOT/apps/agent/dist/index.js"
 if [ ! -f "$CLIENT_JS" ]; then
-  echo "[agent-creator] agent-client not built, building @monou/gateway-app..." >&2
-  (cd "$MONOU_ROOT" && npm run build --workspace=@monou/gateway-app)
+  echo "[agent-creator] agent app not built, building @monou/agent..." >&2
+  (cd "$MONOU_ROOT" && npm run build --workspace=@monou/agent)
 fi
 
 LOG="$MONOU_ROOT/.gateway/agent-$AGENT_ID.log"
 mkdir -p "$(dirname "$LOG")"
-echo "[agent-creator] starting agent-client in background..."
+echo "[agent-creator] starting agent app in background..."
 nohup env GATEWAY_URL="$GATEWAY_URL" AGENT_ID="$AGENT_ID" AGENT_DIR="$AGENT_DIR" \
   "$SCRIPT_DIR/start-agent-client.sh" >> "$LOG" 2>&1 &
 

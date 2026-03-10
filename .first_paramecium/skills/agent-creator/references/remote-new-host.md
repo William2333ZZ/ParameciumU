@@ -26,7 +26,7 @@ AGENT_DIR=$(pwd)/agents/<agent_id> MONOU_ROOT=$(pwd) \
   .first_paramecium/skills/agent-creator/scripts/create-agent-dir.sh
 ```
 
-Then launch `agent-client` with reachable `GATEWAY_URL`.
+Then launch the agent app with reachable `GATEWAY_URL`.
 
 Windows:
 
